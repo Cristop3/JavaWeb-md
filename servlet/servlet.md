@@ -58,7 +58,7 @@
     // 在web工程停止的时候调用
 ```
 
-实现Servlet类下如何获取GET&POST方法
+#### 实现Servlet类下如何获取GET&POST方法
 
 ```java
 1. 若在service方法中
@@ -73,7 +73,7 @@
  	}
 ```
 
-如何通过"继承HttpServlet类"来创建一个servlet程序（通过一个类继承HttpServlet类）
+#### 如何通过"继承HttpServlet类"来创建一个servlet程序（通过一个类继承HttpServlet类）
 
 ```java
 1. 编写一个类去继承 HttpServlet类
@@ -91,5 +91,66 @@
 	}
 3. 到web.xml中去配置Servlet访问地址    
     // 同上配置
+```
+
+#### 解决右键New未出现Servlet配置项（变相就是通过Idea来创建Servlet程序）
+
+```java
+https://blog.csdn.net/a124654564/article/details/119105837?utm_medium=distribute.pc_relevant.none-task-blog-2~default~baidujs_baidulandingword~default-0.pc_relevant_paycolumn_v3&spm=1001.2101.3001.4242.1&utm_relevant_index=3
+```
+
+#### 整个Servlet继承实现体系
+
+![servlet-体系.png](https://s2.loli.net/2022/04/25/HwiOcze86v73RhB.png)
+
+#### ServletConfig类
+
+```java
+1. 用处
+    Servlet程序的配置信息类；
+    Servlet程序和ServletConfig对象都是由Tomcat负责创建，我们负责使用；
+    Servlet程序默认是第一次访问的时候创建，ServletConfig是每个Servlet程序创建时，就创建一个对应的ServletConfig对象。
+    
+2. 三大作用（均在init方法中使用）
+    2.1 获取Servlet程序的别名（web.xml中的servlet-name）
+     // servletConfig.getServletName()
+    
+    2.2 获取初始化参数init-param（web.xml中找到当前Servlet配置标签项）
+     // <init-param>
+     <Servlet>
+     	// Servlet配置
+    	// ...
+    	// servletConfig init参数
+    	<init-param>
+    		<param-name>username</param-name>
+    		<param-value>root</param-value>
+    	</init-param>
+     </Servlet>
+     // servletConfig.getInitParameter("username")
+    
+   2.3 获取ServletContext对象
+    // servletConfig.getServletContext()
+```
+
+#### ServletContext类
+
+```java
+1. 含义
+    ServletContext是一个接口，表示Servlet上下文对象；
+    一个web工程，只有一个ServletContext对象实例；
+    ServletContext对象是一个域对象。
+    
+    什么是域对象？
+    	是可以像Map一样存取数据的对象，叫域对象。
+    	这里的域指的是存取数据的操作范围。
+    
+2. 四个作用
+    2.1 "获取web.xml中配置的上下文参数<context-param>"
+    
+    2.2 获取当前的工程路径，格式：/工程路径
+    
+    2.3 获取工程部署后在服务器硬盘上的绝对路径
+    
+    2.4 像Map一样存取数据
 ```
 
