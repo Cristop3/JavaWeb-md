@@ -8,7 +8,7 @@
 3. 运行在服务器上的一个java小程序，"它可以接收客户端发送过来的请求，并相应数据给客户端"
 ```
 
-如何通过"实现Servlet"来创建一个servlet程序（通过一个类来实现Servlet类）
+#### 如何通过"实现Servlet"来创建一个servlet程序（通过一个类来实现Servlet类）
 
 ```java
 1. 编写一个类去实现servlet接口 
@@ -112,10 +112,10 @@ https://blog.csdn.net/a124654564/article/details/119105837?utm_medium=distribute
     Servlet程序默认是第一次访问的时候创建，ServletConfig是每个Servlet程序创建时，就创建一个对应的ServletConfig对象。
     
 2. 三大作用（均在init方法中使用）
-    2.1 获取Servlet程序的别名（web.xml中的servlet-name）
+    2.1 "获取Servlet程序的别名（web.xml中的servlet-name）"
      // servletConfig.getServletName()
     
-    2.2 获取初始化参数init-param（web.xml中找到当前Servlet配置标签项）
+    2.2 "获取初始化参数init-param（web.xml中找到当前Servlet配置标签项）"
      // <init-param>
      <Servlet>
      	// Servlet配置
@@ -128,7 +128,7 @@ https://blog.csdn.net/a124654564/article/details/119105837?utm_medium=distribute
      </Servlet>
      // servletConfig.getInitParameter("username")
     
-   2.3 获取ServletContext对象
+   2.3 "获取ServletContext对象"
     // servletConfig.getServletContext()
 ```
 
@@ -142,15 +142,57 @@ https://blog.csdn.net/a124654564/article/details/119105837?utm_medium=distribute
     
     什么是域对象？
     	是可以像Map一样存取数据的对象，叫域对象。
-    	这里的域指的是存取数据的操作范围。
+    	这里的域指的是存取数据的操作范围。（整个web工程）
     
 2. 四个作用
-    2.1 "获取web.xml中配置的上下文参数<context-param>"
+    2.1 "获取web.xml中配置的上下文参数<context-param>(与<servlet>标签同级)"
+    	// web.xml
+    		<!--    配置servletContext配置项 -->
+                <context-param>
+                    <param-name>sameLevelServlet</param-name>
+                    <param-value>1234</param-value>
+                </context-param>
+        // servlet 的doPost方法中
+    		ServletContext servletContext = getServletContext(); // 这里我直接使用getServletContext()方法 该方法在GenericServlet抽象类当中
+        	System.out.println("获取配置的context域对象参数sameLevelServlet的值" + servletContext.getInitParameter("sameLevelServlet")); // 特别需要注意获取context-param参数也使用getInitParameter方法 但注意不能得到init-param配置项
     
-    2.2 获取当前的工程路径，格式：/工程路径
+    2.2 "获取当前的工程路径，格式：/工程路径"
+        System.out.println("获取当前的工程路径，格式： /工程路径:" + servletContext.getContextPath()); // 若在本地则同Tomcat中Deployment中的Application context设置相同，也等于url路径中端口号后面到Servlet名称前内容
     
-    2.3 获取工程部署后在服务器硬盘上的绝对路径
+    2.3 "获取工程部署后在服务器硬盘上的绝对路径"
+        System.out.println("获取工程部署到服务器硬盘上的绝对路径" + servletContext.getRealPath("/"));
+	    //	"/":斜杠表示被服务器解析地址为：http://ip:port/工程名/
+        //   再者映射到IDEA代码目录中的web文件夹
     
-    2.4 像Map一样存取数据
+    2.4 "像Map一样存取数据"
+        ServletContext servletContext = getServletContext();
+	    servletContext.setAttribute(key,value)
+        servletContext.getAttribute(key)
+        servletContext.removeAttribute(key)
+    
+    2.5 "ServletContext是在web工程部署启动的时候创建，在web工程停止的时候销毁"        
+```
+
+#### GET请求分析
+
+![get请求分析.png](https://s2.loli.net/2022/04/26/wVMGHXkFvbTiAxn.png)
+
+#### POST请求分析
+
+![post请求分析.png](https://s2.loli.net/2022/04/26/mr9WG3eiDCPbOg4.png)
+
+#### HTTP-Request-Header
+
+![http-request-header.png](https://s2.loli.net/2022/04/26/yUFGtA9Y4wsJvC1.png)
+
+#### HTTP-Response-Header
+
+![http-response-header.png](https://s2.loli.net/2022/04/26/KCPQTNl7E1Z9zRv.png)
+
+#### HttpServletRequest类
+
+```java
+1. 作用
+    每次只要有请求进入 Tomcat 服务器，Tomcat 服务器就会把请求过来的 HTTP 协议信息解析好封装到 Request 对象中。然后传递到 service 方法（doGet 和 doPost）中给我们使用。我们可以通过 HttpServletRequest 对象，获取到所有请求的信息。
 ```
 
