@@ -194,5 +194,75 @@ https://blog.csdn.net/a124654564/article/details/119105837?utm_medium=distribute
 ```java
 1. 作用
     每次只要有请求进入 Tomcat 服务器，Tomcat 服务器就会把请求过来的 HTTP 协议信息解析好封装到 Request 对象中。然后传递到 service 方法（doGet 和 doPost）中给我们使用。我们可以通过 HttpServletRequest 对象，获取到所有请求的信息。
+    
+2. 常用方法
+    // -----------------------------setCharacterEncoding--------------------------
+    3.1 setCharacterEncoding() - "设置字符集" （针对post请求 中文乱码 但是必须要在请求参数之前 调用）
+        req.setCharacterEncoding("UTF-8")
+    
+    // ------------------------------------base-----------------------------------
+    2.1 getRequestURI() - "获取请求的资源路径"
+    System.out.println("getRequestURI() - \"获取请求的资源路径\"" + req.getRequestURI());
+	// /servlet-demo/TestHttpServletRequest
+
+    2.2 getRequestURL() - "获取请求的统一资源定位符（绝对路径）"
+    System.out.println("getRequestURL() - \"获取请求的统一资源定位符（绝对路径）\"" + req.getRequestURL());    
+    // http://127.0.0.1:8080/servlet-demo/TestHttpServletRequest
+
+    2.3 getRemoteHost() - "获取客户端的IP"
+    System.out.println("getRemoteHost() - \"获取客户端的IP\"" + req.getRemoteHost());
+	// 127.0.0.1
+
+    2.4 getHeader() - "获取请求头"
+    System.out.println("getHeader() - \"获取请求头\"" + req.getHeader("content-type"));
+	// application/x-www-form-urlencoded
+	
+	2.7 getMethod() - "获取请求的方式"
+    System.out.println("getMethod() - \"获取请求的方式\"" + req.getMethod());
+	// POST
+	
+	// --------------------------------获取参数值-----------------------------------
+    2.5 getParameter() - "获取请求的参数"
+    	String username = req.getParameter("username");
+        String password = req.getParameter("password");
+        System.out.println("username: " + username);
+        System.out.println("password: " + password);    
+
+    2.6 getParameterValues() - "获取请求的参数（多个值(当存在一个字段key 跟多个value值时)时使用）"
+        String[] hobbies = req.getParameterValues("hobby");
+        System.out.println("hobby: " + Arrays.asList(hobbies));
+        
+    
+	// ------------------------------设置获取数据域---------------------------------
+    2.8 setAttribute(key,value) - "设置数据域"
+        req.setAttribute("fromHttpServletRequest", "test");
+
+    2.9 getAttribute(key) - "获取数据域"
+        Object fromHttpServletRequest = req.getAttribute("fromHttpServletRequest");
+        System.out.println(fromHttpServletRequest);
+	
+    // --------------------------------请求转发-------------------------------------
+    3.0 getRequestDispatcher() - "获取请求转发对象"
+        RequestDispatcher requestDispatcher = req.getRequestDispatcher("/TestDispatcher"); // "/"表示http://ip:port/工程名（映射到idea中的web文件夹）
+        requestDispatcher.forward(req, resp);
+	
+	// -------------------------------请求转发特点----------------------------------
+	    1. 浏览器地址栏没有变化
+     	2. 他们是一次请求
+         3. 他们共享Request域中的数据
+         4. 可以转发到WEB-INF目录下的资源
+         5. 不可以访问工程以外的资源
+```
+
+#### JavaWeb中的相对路径和绝对路径
+
+```java
+相对路径：
+	.   // 表示当前目录
+    ..  // 表示上一级目录
+    资源名 // 表示当前目录/资源名
+    
+绝对路径：
+    http://ip:port/工程路径/资源路径
 ```
 
