@@ -189,6 +189,8 @@ https://blog.csdn.net/a124654564/article/details/119105837?utm_medium=distribute
 
 ![http-response-header.png](https://s2.loli.net/2022/04/26/KCPQTNl7E1Z9zRv.png)
 
+## 2022.04.29
+
 #### HttpServletRequest类
 
 ```java
@@ -254,6 +256,10 @@ https://blog.csdn.net/a124654564/article/details/119105837?utm_medium=distribute
          5. 不可以访问工程以外的资源
 ```
 
+#### 请求转发示意图
+
+![请求转发.png](https://s2.loli.net/2022/04/30/VLmvIoTQDUEAtZe.png)
+
 #### JavaWeb中的相对路径和绝对路径
 
 ```java
@@ -265,4 +271,67 @@ https://blog.csdn.net/a124654564/article/details/119105837?utm_medium=distribute
 绝对路径：
     http://ip:port/工程路径/资源路径
 ```
+
+#### web中 / 斜杠的不同意义
+
+```java
+在web中 / 斜杠 是一种绝对路径
+    
+/ 斜杠：如果被"浏览器"解析，得到的地址是:"http://ip:port"
+    如：<a href="/">斜杠</a>
+    
+/ 斜杠：如果被"服务器"解析，得到的地址是："http:ip:port/工程路径"    
+    如：<url-pattern>/servlet</url-pattern>
+        servletContext.getRealPath("/")
+        request.getRequestDispatcher("/")
+
+特殊情况：respose.sendRedirect("/") 把斜杠发送给浏览器解析，得到"http://ip:port/"    
+```
+
+## 2022.04.30
+
+#### HttpServletResponse类
+
+```java
+HttpServletResponse 类和 HttpServletRequest 类一样。每次请求进来，Tomcat 服务器都会创建一个 Response 对象传递给 Servlet 程序去使用。HttpServletRequest 表示请求过来的信息，HttpServletResponse 表示所有响应的信息，我们如果需要设置返回给客户端的信息，都可以通过 HttpServletResponse 对象来进行设置
+```
+
+#### 响应的两个输出流的说明
+
+```java
+字节流：getOutputStream() 常用于下载（传递二进制数据）
+字符流：getWriter() 常用于回传字符串（常用）
+两个流同时只能使用一个，否则报错。    
+```
+
+#### 如何解决客户端响应、服务端打印中文乱码问题
+
+```java
+1. 首先Tomcat默认的字符集是 ISO-8859-1
+    // 通过resp.getCharacterEncoding()来查看
+2. 手动设置服务器的字符集
+    // 通过resp.setCharacterEncoding("UTF-8")
+    // 这步设置过后可以看到服务器打印出来的字体是正确的中文，但是响应给浏览器的还是乱码，因此需要服务器告诉浏览器以什么字符集来显示，这里就体现了响应头中的Content-Type
+3. 通知浏览器客户端以什么字符集显示
+    // resp.setHeader("Content-Type","text/html;charset=UTF-8")
+    // PrintWriter writer = resp.getWriter()
+    // writer.write("这是我的响应！！！")
+
+4. 一步到位设置
+    // resp.setContentType("text/html;charset=UTF-8")
+    // 同时设置客户端、服务端使用UTF-8字符集且设置响应头
+```
+
+#### 请求重定向
+
+```java
+// 方式1
+resp.setStatus(302)
+resp.setHeader("Location","http://localhost:8080/servlet-web/testResponse2")
+    
+// 方式2
+resp.sendRedirect("http://localhost:8080/servlet-web/testResponse2")
+```
+
+![请求重定向.png](https://s2.loli.net/2022/04/30/9U1O8jTNdFGMqhQ.png)
 
