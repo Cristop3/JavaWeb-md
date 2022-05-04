@@ -221,3 +221,83 @@ application                (ServletContext类)  整个web工程范围内（直�
     	</listener>
 ```
 
+## 2022.05.04
+
+#### EL表达式
+
+```java
+1. 含义
+    Express Language(表达式语言)
+2. 作用
+    主要是代替jsp页面中的表达式脚本在jsp页面中进行数据的输出
+3. 格式
+    ${ 表达式 }
+```
+
+#### EL表达式获取域数据的顺序
+
+```java
+pageContext.setAttribute("key","pageContext");
+request.setAttribute("key","request");
+session.setAttribute("key","session");
+application.setAttribute("key","application");
+当四个域中都有相同的key的数据时，EL表达式会按照四个域的从小到大的顺序，找到就输出
+    ${ key } // pageContext
+```
+
+#### EL中的"."点运算和"[]"中括号运算
+
+```java
+.点运算，可以输出Bean对象中某个属性的值 pojo.username // 其中特别注意在EL中.点操作符后面默认找的是其getXxx() 如上面就是找的getUsername() getter方法，因此在EL中使用时注意可以不要get前缀，直接后面的内容
+[]中括号运算，可以输出有序集合中某个元素的值 pojo.cities[0]
+也可以输出map集合中key含特殊字符的值 pojo.map['x+x+x'] || pojo.map["y.y.y"]
+```
+
+#### EL中11个隐含对象
+
+```java
+// 该11个隐含对象是EL自定义的，因此只能在El表达式中使用，注意与jsp9大内置对象区别
+
+变量                         类型					 作用
+// 注意在jsp内置对象中也有pageContext是当前jsp上下文对象 这里是在EL中使用来获取jsp9大对象    
+pageContext             PageContextImpl          获取jsp中九大内置对象
+    
+1. 协议
+    jsp: <% request.getScheme() %>
+    EL: ${ pageContext.request.scheme }
+2. 服务器IP
+    jsp: <% request.getServerName() %>
+    EL: ${ pageContext.request.serverName }
+3. 服务器端口
+    jsp: <% request.getServerPort() %>
+    EL: ${ pageContext.request.serverPort }
+4. 工程路径
+    jsp: <% request.getContextPath() %>
+    EL: ${ pageContext.request.contextPath }
+5. 请求方法
+    jsp: <% request.getMethod() %>
+    EL: ${ pageContext.request.method }
+6. 客户端IP
+    jsp: <% request.getRemoteHost() %>
+    EL: ${ pageContext.request.remoteHost }
+7. 会话id
+    jsp: <% session.getId() %>
+    EL: ${ pageContext.session.id }
+
+// 这四个对标jsp中的4大域对象    
+pageScope               Map<String,Object>       获取pageContext域中数据
+requestScope            Map<String,Object>       获取request域中数据
+sessionScope            Map<String,Object>       获取session域中数据applicationScope        Map<String,Object>       获取ServletContext域中数据
+    
+param                   Map<String,String>       获取请求参数的值
+paramValues             Map<String,String[]>     获取多个值的参数值
+
+header                  Map<String,String>       获取请求头的信息
+headerValues            Map<String,String[]>     获取多个值的请求头值
+    
+cookie                  Map<String,Cookie>       获取当前请求的Cookie信息
+
+// 这里需要注意，我们在servlet配置web.xml时 使用<init-param>来配置的"servletConfig"值 而这里的initParam对标的是我们在servlet配置web.xml中<context-param>这个"servletContext"值
+initParam               Map<String,String>       获取web.xml中配置的<context-param>上下文参数
+```
+
