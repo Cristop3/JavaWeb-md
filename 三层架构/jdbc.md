@@ -150,3 +150,8 @@ maxActive=10
     下面的调用上一行的方法。
 ```
 
+## 2022.05.07
+
+#### 补充关于Dao层或Service层生成单元测试
+
+![quick-unitTest.png](https://s2.loli.net/2022/05/07/1ol2BV9Gp6Hdjux.png)
