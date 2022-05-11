@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>vue-test</title>
+    <style>
+      #app span {
+        color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <!-- <span>
+        <span>我是data数据{{getMessage}}</span>
+      </span> -->
+      <!-- <p v-for="(item,index) in dsArr" :key="index">我是v-for{{index}}</p>
+    <span v-if="!!message">我是v-if</span>     
+    <span>我是data数据{{list.name}}</span>
+     -->
+      <h3 @click="onTestEventHandler">{{test}}</h3>
+      <!-- <base-show :child-prop="list.name" /> -->
+      <!-- <span>我是一模一样的data数据{{message}}</span> -->
+      <!-- <p>我是数据依赖message{{`${message}依赖数据`}}</p> -->
+      <!-- <p>list{{`${list.name}`}}</p> -->
+      <!-- <p>observable{{`${v}岁`}}</p> -->
+      <!-- <h4 v-show="testShow">我是v-show</h4>
+      <span v-if="!!message">我是v-if</span>
+      <h4 v-html="vHtml"></h4>
+      <input v-focus type='text' />
+      <v-component /> -->
+    </div>
+  </body>
+  <script src="./vue.dist.js"></script>
+  <script src="./vue-router-dist.js"></script>
+  <script>
+    // 1. 分析引入vue-router
+    // install(Vue)
+    // let v
+    // const router = new VueRouter({
+    //   mode: "history"
+    // })
+
+    // 2. 分析extends extend mixin mixins区别
+    // let extend = {
+    //   created() {
+    //     console.log('extends created');
+    //   },
+    // };
+    // let mixin1 = {
+    //   created() {
+    //     console.log('mixins mixin1 ');
+    //   },
+    // };
+    // let mixin2 = {
+    //   created() {
+    //     console.log('mixins mixin2');
+    //   },
+    // };
+    // Vue.mixin({
+    //   created() {
+    //     console.log('Vue.mixin');
+    //   },
+    // });
+    // const vComponent = Vue.extend({
+    //   created() {
+    //     console.log('Vue.extend');
+    //   },
+    //   template: `<span>我是Vue.extend出来的组件</span>`,
+    // });
+    // Vue.component('v-component', vComponent);
+
+    // 3. 分析自定义指令
+    // Vue.directive('focus', {
+    //   bind:(el) => {
+    //     console.log('bind',el)
+    //   },
+    //   // 当被绑定的元素插入到 DOM 中时……
+    //   inserted: function (el) {
+    //     console.log('inserted',el)
+    //     // 聚焦元素
+    //     el.focus();
+    //   },
+    //   update:(el)=>{
+    //     console.log('update',el)
+    //   }
+    // });
+
+    const vm = new Vue({
+      // extends: extend,
+      // mixins: [mixin1, mixin2],
+      data: {
+        message: 'test',
+        test: '我是另一个data',
+        testShow: true,
+        vHtml: '<span>我是v-html</span>'
+      },
+      created() {
+        console.log('components created');
+      },
+      // 4. 分析computed
+      // computed: {
+      //   getMessage() {
+      //     return this.message + '_computed';
+      //   },
+      // },
+      
+      // 5. 分析watch
+      // watch: {
+      //   message: function (val, oldVal) {
+      //     console.log(val, oldVal);
+      //   },
+      // },
+
+      mounted() {
+        // setTimeout(() => {
+        //   this.message = '老子来更改';
+        // }, 3000);
+      },
+      methods: {
+        // 6. 分析vue事件机制原理
+        onTestEventHandler(){
+          console.log('我是事件处理函数')
+        }
+      },
+    });
+
+    // 改变data值测试
+    // setTimeout(function(){
+
+    // },2000)
+
+    // 注册组件测试
+    // Vue.component('base-show',{
+    //   name:'baseShow',
+    //   template:`<div><h3 v-for="item in dsChild">{{myMessage}}</h3><br/><span>{{childProp}}</span></div>`,
+    //   props:['childProp'],
+    //   data(){
+    //     return {
+    //       myMessage:'我是baseShow组件-component',
+    //       dsChild:3
+    //     }
+    //   }
+    // })
+
+    vm.$mount('#app');
+
+    // 测试后面添加值 这种会报错 应该未提前声明未变成响应式 这里就要使用$set
+    // this.afterData = '我是后面添加的值'
+  </script>
+</html>

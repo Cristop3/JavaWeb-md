@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>lc-test</title>
+    <style></style>
+  </head>
+  <body>
+    <script>
+      // treeNode
+      function TreeNode(val, left, right) {
+        this.val = val === undefined ? 0 : val;
+        this.left = left === undefined ? null : left;
+        this.right = right === undefined ? null : right;
+      }
+      // 数组转二叉树
+      function getTreeFromLayerOrderArray(array) {
+        let n = array.length;
+        if (!n) return null;
+        let index = 0;
+        let root = new TreeNode(array[index++]);
+        let queue = [root];
+        while (index < n) {
+          let top = queue.shift();
+          let v = array[index++];
+          top.left = v == null ? null : new TreeNode(v);
+          if (index < n) {
+            let v = array[index++];
+            top.right = v == null ? null : new TreeNode(v);
+          }
+          if (top.left) queue.push(top.left);
+          if (top.right) queue.push(top.right);
+        }
+        return root;
+      }
+
+      var levelOrder = function (root) {
+        if (!root) return false;
+        let cur = null,
+          ret = [],
+          queue = [root, null],
+          flag = true;
+        while (queue.length) {
+          cur = queue.shift();
+          if (cur !== null) {
+            ret.push(cur);
+            // 直接压入
+            queue.push(cur.left);
+            queue.push(cur.right);
+          } else {
+            // 双指针前后对比栈 两数相等即对称
+            let r = 0,
+              l = ret.length - 1;
+            while (r < l) {
+              if ((!!ret[r] && !!ret[l]) || (!ret[r] && !ret[l])) {
+                r++;
+                l--;
+              } else {
+                flag = false;
+                queue.length = 0;
+                break;
+              }
+            }
+            ret = [];
+            !!flag && queue.length && queue.push(null);
+          }
+        }
+        return flag;
+      };
+      console.log(levelOrder(getTreeFromLayerOrderArray([1,2,2,3,4,4,3])));
+    </script>
+  </body>
+</html>
