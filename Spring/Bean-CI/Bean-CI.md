@@ -414,3 +414,16 @@
 抽象的父 Bean 只能作为模板被子 Bean 继承，它不能实例化，也不能被其他 Bean 引用。        
 ```
 
+## 2022.05.17
+
+#### Spring中的自动装配
+
+```java
+ Spring 在 Bean 与 Bean 之间建立依赖关系的行为称为“装配”。
+ 在之前我们都是在 XML 配置中通过 <constructor-arg>和 <property> 中的 ref 属性，手动维护 Bean 与 Bean 之间的依赖关系的。
+ 
+ Spring 的自动装配功能可以让 Spring 容器依据某种规则（自动装配的规则，有五种），为指定的 Bean 从应用的上下文（AppplicationContext 容器）中查找它所依赖的 Bean，并自动建立 Bean 之间的依赖关系。而这一过程是在完全不使用任何 <constructor-arg>和 <property> 元素 ref 属性的情况下进行的。  
+     
+ Spring 框架式默认不支持自动装配的，要想使用自动装配，则需要对 Spring XML 配置文件中 <bean> 元素的 "autowire" 属性进行设置。    
+```
+
