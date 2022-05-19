@@ -416,7 +416,7 @@
 
 ## 2022.05.17
 
-#### Spring中的自动装配
+#### Spring中的自动装配（基于xml）
 
 ```java
  Spring 在 Bean 与 Bean 之间建立依赖关系的行为称为“装配”。
@@ -424,6 +424,251 @@
  
  Spring 的自动装配功能可以让 Spring 容器依据某种规则（自动装配的规则，有五种），为指定的 Bean 从应用的上下文（AppplicationContext 容器）中查找它所依赖的 Bean，并自动建立 Bean 之间的依赖关系。而这一过程是在完全不使用任何 <constructor-arg>和 <property> 元素 ref 属性的情况下进行的。  
      
- Spring 框架式默认不支持自动装配的，要想使用自动装配，则需要对 Spring XML 配置文件中 <bean> 元素的 "autowire" 属性进行设置。    
+ Spring 框架式默认不支持自动装配的，要想使用自动装配，则需要对 Spring XML 配置文件中 <bean> 元素的 "autowire" 属性进行设置。 
+     
+ autowire有5种类型，分别是"byName"\"byType"\"constructor"\"default"\"no"其中最在xmlBean配置种常用的是byName和byType
+     
+     1. autowire="no" 表示不使用自动装配，此时我们必须通过 <bean> 元素的 <constructor-arg>和 <property> 元素的 ref 属性维护 Bean 的依赖关系。
+	<!--    autowire=no -->
+     	<bean id="dept" class="com.home.beanIoc.domain.Dept">
+         	<property name="deptNo" value="1"/>
+         	<property name="deptName" value="共享中心"/>
+         </bean>
+         <bean id="emp" class="com.home.beanIoc.domain.Emp">
+             <property name="empId" value="10001"/>
+             <property name="empName" value="我是autowire=no"/>
+             <property name="dept" ref="dept" /> // 这里就跟之前说的外部内引入
+         </bean>     
+    
+    2. autowire="byName" 表示按属性名称自动装配，XML 文件中 Bean 的 id 或 name 必须与类中的属性名称相同。
+     <!--    autowire=byName-->
+        <bean id="dept" class="com.home.beanIoc.domain.Dept">
+            <property name="deptNo" value="1"/>
+            <property name="deptName" value="共享中心"/>
+        </bean>
+        <bean id="emp" class="com.home.beanIoc.domain.Emp" autowire="byName">
+            <property name="empId" value="10002"/>
+            <property name="empName" value="我是autowire=byName;根据属性名称注入，需要注意被注入的bean的id或者name必须要和类属性名称一样"/>
+        </bean>        
+     
+    3. autowire="byType" 表示按类中对象属性数据类型进行自动装配。即使 XML 文件中 Bean 的 id 或 name 与类中的属性名不同，只要 Bean 的 class 属性值与类中的对象属性的类型相同，就可以完成自动装配。
+     <!--    autowire=byType-->
+        <bean id="deptxxxx" class="com.home.beanIoc.domain.Dept"> // 注意此处id值任意写了跟类属性名不一致但是是根据属性类型Dept匹配
+        // 如果同时存在多个相同类型的 Bean，则注入失败，并且引发异常。则不建议使用byType   
+            <property name="deptNo" value="1"/>
+            <property name="deptName" value="共享中心"/>
+        </bean>
+        <bean id="emp" class="com.home.beanIoc.domain.Emp" autowire="byType">
+            <property name="empId" value="10003"/>
+            <property name="empName" value="我是autowire=byType"/>
+        </bean
+            
+   4. autowire="constructor" 表示按照 Java 类中构造函数进行自动装配。
+    <!--    autowire=constructor-->
+        <bean id="deptxxxx" class="com.home.beanIoc.domain.Dept">
+            <constructor-arg name="deptNo" value="1"/>
+            <constructor-arg name="deptName" value="共享中心"/>
+        </bean>
+        <bean id="emp" class="com.home.beanIoc.domain.Emp" autowire="constructor">
+            <constructor-arg name="empId" value="10004"/>
+            <constructor-arg name="empName" value="我是autowire=constructor"/>
+        </bean>
+            
+   5. 默认采用上一级标签 <beans> 设置的自动装配规则（default-autowire）进行装配，Beans.xml 中的配置内容如下。
+    <!--    autowire=default-->
+        <beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd"
+       default-autowire="byType"> // 注意此处在beans标签下需要设置default-autowire=值，即为bean中的默认装配类型    
+        <bean id="dept" class="com.home.beanIoc.domain.Dept">
+            <property name="deptNo" value="1"/>
+            <property name="deptName" value="共享中心"/>
+        </bean>
+        <bean id="emp" class="com.home.beanIoc.domain.Emp" autowire="default">
+            <property name="empId" value="10003"/>
+            <property name="empName" value="我是autowire=default"/>
+        </bean>        
+```
+
+![Bean-autowire.png](https://s2.loli.net/2022/05/19/PfFvbCdcjAtpBUJ.png)
+
+#### Spring中Bean注入外部属性文件
+
+```java
+比如引入数据库配置属性文件
+    
+// 1. jdbc.properties
+prop.driverClassName=com.mysql.cj.jdbc.Driver
+prop.url=jdbc:mysql://localhost:3306/testDB?characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8
+prop.userName=root
+prop.password=123456
+prop.initialSize=5
+prop.maxActive=10    
+    
+// 2. 把外部properties属性文件引入到spring配置文件中，此处需要引入context名称空间
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       // 2.1 context-xmlns
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans 									 http://www.springframework.org/schema/beans/spring-beans.xsd
+       // 2.2 context-xsd
+          			      http://www.springframework.org/schema/beans/spring-context.xsd 
+          ">
+ 
+ // 3. 在配置文件中使用标签引入外部属性文件             
+  	<context:prperty-placeholder location="classpath:jdbc.properties" />
+    <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource">
+     <property name="driverClassName" value="${prop.driverClassName}"></property>
+     <property name="url" value="${prop.url}"></property>
+     <property name="username" value="${prop.userName}"></property>
+     <property name="password" value="${prop.password}"></property>
+    </bean>  
+ </beans>             
+```
+
+## 2022.05.19
+
+#### Spring中的自动装配（基于注解）
+
+```java
+1. 什么是注解
+    （1）注解是代码特殊标记，格式：@注解名称(属性名称=属性值, 属性名称=属性值..)
+	（2）使用注解，注解作用在类上面，方法上面，属性上面
+	（3）使用注解目的：简化 xml 配置
+    
+2. Spring注解自动装配步骤
+    引入依赖
+    	// spring-aop-5.2.6.RELEASE.jar
+    
+    开启组件扫描
+    	// 需要开启context名称空间
+        <beans xmlns="http://www.springframework.org/schema/beans"
+               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xmlns:context="http://www.springframework.org/schema/context"
+               xsi:schemaLocation="http://www.springframework.org/schema/beans 								http://www.springframework.org/schema/beans/spring-beans.xsd
+                                   http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+
+	    // 开启组件扫描功能
+		// 若需要扫描多个包，则多个包之间使用逗号隔开
+		// 或者直接扫描其上层包目录 如com.home.beanIoc
+		<context:component-scan base-package="com.home.beanIoc" />	
+            
+    使用注解定义 Bean
+        @Component
+        @Repository
+        @Service
+        @Controller
+            
+        // dao层    
+            // 1. 创建dao接口并创建其实现类 
+            // 2. 并使用@Repository注解实现类 加入IOC容器中
+            // 3. 也可以使用@Component注解
+            
+            // @Component(value="IocDaoImpl") 等价于在xml配置文件中的
+            // <bean id="IocDaoImpl" class="" />
+            
+            // @Repository(value="iAmDaoName")
+            @Repository
+            public class IocDaoImpl implements IocDao{
+                @Override
+                public void testIocDao() {
+                    System.out.println("我是IocDao实现类");
+                }
+            }
+			
+	    // service层
+		   // 1. 创建service接口并创建其实现类
+		   // 2. 并使用@Service注解接口类 加入IOC容器中
+            // 3. 也可以使用@Component注解
+            // 4. 在Service内部声明并使用dao层 （使用@Autowired设置Bean的属性变量自动装配dao层实现类，默认按属性类型装配(byType)）等价于在xml配置文件中使用ref引入外部类配置
+		   
+            // @Component(value="IocServiceImpl") 等价于在xml配置文件中的
+            // <bean id="IocServiceImpl" class="" />
+
+		   @Service(value = "iAmServiceName") // 起个别名方便其他地方使用@Qualifier或者@Resource使用	
+            public class IocServiceImpl implements IocService{
+                // 1. 根据类型注入byType 当存在多个实现类时 需要根据名称
+                @Autowired 
+    		   private IocDao iocDao;
+                
+                // 2. 根据名称注入byName 同步需要给dao层起一个名称，默认为dao层实现类首字母小写
+                @Autowired
+                @Qualifier(value="iAmDaoName")
+                private IocDao iocDao;
+                
+                @Override
+                public void testIocService() {
+                    System.out.println("我是IocService实现类");
+                    iocDao.testIocDao();
+                }
+            }
+		
+	    // controller层 
+			@Controller("iAmController") // 这里给controller起个别名
+                public class IocController {
+                    // @Resource // /根据类型进行注入
+                    @Resource(name="iAmServiceName") // 根据名称进行注入
+                    private IocService iocService;
+                    public void testAll(){
+                        System.out.println("我是IocController类,接下来准备调用service方法");
+                        iocService.testIocService();
+                    }
+                }
+
+            
+    依赖注入
+        （1）@Autowired：根据属性类型进行自动装配
+        （2）@Qualifier：根据名称进行注入这个@Qualifier 注解的使用，和上面@Autowired 一起使用
+        （3）@Resource：可以根据类型注入，可以根据名称注入
+        （4）@Value：注入普通类型属性
+```
+
+![Bean-注解定义.png](https://s2.loli.net/2022/05/19/joDT92glBnILMCR.png)
+
+![Bean-注解注入.png](https://s2.loli.net/2022/05/19/mNyd8tUX342FRKx.png)
+
+#### 组件扫描细节配置
+
+```xml
+1. 默认全扫描
+	<context:component-scan base-package="com.home.beanIoc" />	
+
+2. 指定扫描
+	// use-default-filters="false" 表示现在不使用默认 filter，自己配置 filter
+ context:include-filter ，设置扫描哪些内容
+    <context:component-scan base-package="com.home.beanIoc" use-default-filters="false">
+     <context:include-filter type="annotation" 
+                           expression="org.springframework.stereotype.Controller"/>
+    </context:component-scan>
+
+3. 指定不扫描
+	// 下面配置扫描包所有内容context:exclude-filter： 设置哪些内容不进行扫描
+	<context:component-scan base-package="com.home.beanIoc" use-default-filters="false">
+ 		<context:include-filter type="annotation" 
+expression="org.springframework.stereotype.Controller" />
+	</context:component-scan>
+```
+
+#### 全面开启注解
+
+```java
+// SpringConfig.java
+@Configuration // 作为配置类，替代 xml 配置文件
+@ComponentScan(basePackages = {"com.home.beanIoc"}) // 扫描包位置
+public class SpringConfig {
+}
+
+// test.java
+@Test
+public void testAllAnno(){
+    ApplicationContext context = new AnnotationConfigApplicationContext(SpringConfig.class);
+    IocController iAmControllerName = context.getBean("iAmControllerName", IocController.class);
+    iAmControllerName.testAll();
+}
+
+// console
+我是IocController类,接下来准备调用service方法
+我是IocService实现类,接下来准备调用dao方法
+我是IocDao实现类
 ```
 
