@@ -322,6 +322,3 @@ AspectJ 框架为 AOP 开发提供了一套 @AspectJ 注解。它允许我们直
 	i am a dog and now running
 ```
 
-## 2022.05.22
-
-#### Spring中的JdbcTemplate
