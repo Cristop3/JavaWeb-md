@@ -450,13 +450,182 @@ Spring中有2种方式操作事务：
     	//  脏读（不存在） 不可重复读（不存在） 幻读（存在）
         ISOLATION_REPEATABLE_READ	MySQL 默认级别，多次读取相同字段的结果是一致的，防止脏读和不可重复读，可能出现幻读 
     	//  脏读（不存在） 不可重复读（不存在） 幻读（不存在）
-        ISOLATION_SERIALIZABLE	完全服从 ACID 的隔离级别，防止脏读、不可重复读和幻读 
+        ISOLATION_SERIALIZABLE	完全服从 ACID 的隔离级别，防止脏读、不可重复读和幻读
+     @Transactional(isoLation=IsoLation.REPEATABLE_READ)
+    
+    4.3 timeout // 超时时间
+    	事务需要在一定时间内进行提交，如果不提交则进行回滚
+    	默认值是-1 表示永不超时 单位是秒
+    
+    4.4 readOnly // 是否只读
+    	读：查询操作， 写：insert\update\delete
+    	readOnly 默认值 false，表示可以查询，可以添加修改删除操作
+        设置 readOnly 值是 true，设置成 true 之后，只能查询
+    
+    4.5 rollbackFor // 回滚
+    	可以设置哪些异常即执行事务回滚
+    
+    4.6 noRollbackFor // 不回滚
+    	可以设置出现哪些异常不进行事务回滚
 ```
 
-#### 基于注解方式声明事务
+#### 基于注解方式声明事务(不完整注解方法 注解类或者具体方法)
 
 ```java
+接着上面的jdbcTemplate操作
+1. 修改下表结构 增加"money"字段
+    
+2. 则对应的user实体类也需要增加money属性及getter\setter\toString\constructor
 
+3. 为了简单快速的测试 在dao层加入两个方法 一个作增加 一个作减少    
+    // UserDao.java
+    // 增加账户金额
+    int addUserMoney(User user, BigDecimal money);
+    // 减少账户金额
+    int reduceUserMoney(User user, BigDecimal money);
+	
+	// UserDaoImpl.java
+	@Override
+    public int addUserMoney(User user, BigDecimal money) {
+        String sql = "update t_user set money=money+? where id=?";
+        Object[] args = {money, user.getId()};
+        return jdbcTemplate.update(sql, args);
+    }
+    @Override
+    public int reduceUserMoney(User user, BigDecimal money) {
+        String sql = "update t_user set money=money-? where id=?";
+        Object[] args = {money, user.getId()};
+        return jdbcTemplate.update(sql, args);
+    }
+   
+4. 只在service层 测试 并加上@Transactional注解
+    // UserServiceImpl.java
+    @Override
+    @Transactional(readOnly = false, timeout = -1, propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
+    public int[] testTransaction() {
+        User A = new User();
+        A.setId(1);
+        User B = new User();
+        B.setId(2);
+        userDao.addUserMoney(A, BigDecimal.valueOf(500));
+        int x = 100 / 0; // 异常
+        userDao.reduceUserMoney(B, BigDecimal.valueOf(500));
+        return new int[0];
+    }
+
+5. xml文件中添加aop\tx名称空间
+    // 由于事务是基于aop的 因此需要引入aop名称空间
+    // 上个例子已经引入tx依赖包了
+    <beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+                           http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+                           http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+6. 开启事务管理器 由于使用jdbcTemplate则使用DataSourceTransactionManager
+    <!--    6. 开启事务管理器-->
+    <bean id="transactionManage" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <!--        6.1. 注入mysql数据源-->
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+        
+ 7. 配置tx开启事务注解
+    <tx:annotation-driven transaction-manager="transactionManage"/>
+        
+ 8. Test
+    @Test
+    public void testTransaction(){
+        ApplicationContext context = new ClassPathXmlApplicationContext("beans.xml");
+        UserService userService = context.getBean("userService", UserService.class);
+        userService.testTransaction();
+    }
+```
+
+#### 基于xml配置文件声明事务
+
+```xml
+<!--    9. 基于xml配置方式 开启事务-->
+<!--    9.1 配置通知-->
+<tx:advice id="txAdvice">
+    <!--        9.2 配置事务参数-->
+    <tx:attributes>
+        <!--            9.3 指定在哪种规则的方法上添加事务-->
+        <tx:method name="testTransaction" propagation="REQUIRED"/>
+    </tx:attributes>
+</tx:advice>
+<!--    9.4 配置切入点和切面-->
+<aop:config>
+    <!--        9.5 配置切入点-->
+    <aop:pointcut id="aopP" expression="execution(* com.company.jdbc.service.UserService.testTransaction(..))"/>
+    <!--        9.6 配置切面-->
+    <aop:advisor advice-ref="txAdvice" pointcut-ref="aopP"/>
+</aop:config>
+```
+
+#### 全面开启注解方式
+
+```java
+由于在前面的例子中 有些配置写在xml中 有些又是使用注解 导致很混乱 因此下面使用配置类开启全面注解方式
+	
+    // SpringConfig
+    @Configuration // 作为配置类，替代 xml 配置文件
+    @ComponentScan(basePackages = {"com.company.jdbc"}) // 扫描包位置 IOC
+    @EnableTransactionManagement // 开启事务
+    public class SpringConfig {
+        // 注入数据库的配置 使用durid依赖包
+        @Bean
+        public DruidDataSource getDruidDataSourceConfig() {
+            DruidDataSource dataSource = new DruidDataSource();
+            dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
+            dataSource.setUrl("jdbc:mysql://localhost:3306/company?characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8");
+            dataSource.setUsername("root");
+            dataSource.setPassword("xxx");
+            return dataSource; // 返回配置对象
+        }
+
+        // 注入JdbcTemplate
+        @Bean
+        public JdbcTemplate getJdbcTemplateConfig(DruidDataSource dataSource) { // 依赖上面的配置对象 因此参数就是该配置对象 会到IOC容器中找该对象
+            JdbcTemplate jdbcTemplate = new JdbcTemplate();
+            jdbcTemplate.setDataSource(dataSource);
+            return jdbcTemplate; // 返回jdbcTemplate配置对象
+        }
+
+        // 注入事务管理器
+        @Bean
+        public DataSourceTransactionManager getDataSourceTransactionManager(DruidDataSource dataSource) {
+            DataSourceTransactionManager dataSourceTransactionManager = new DataSourceTransactionManager();
+            // 依赖上面的配置对象 因此参数就是该配置对象 会到IOC容器中找该对象 dataSource
+            dataSourceTransactionManager.setDataSource(dataSource);
+            return dataSourceTransactionManager;
+        }
+    }
+	
+	// Service
+	@Override
+    @Transactional(readOnly = false, timeout = -1, propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
+    public int[] testTransaction() {
+        User A = new User();
+        A.setId(1);
+        User B = new User();
+        B.setId(2);
+        userDao.addUserMoney(A, BigDecimal.valueOf(500));
+        int x = 100 / 0;
+        userDao.reduceUserMoney(B, BigDecimal.valueOf(500));
+        return new int[0];
+    }
+	
+	// Test
+	@Test
+    public void testTransaction(){
+        ApplicationContext context = new AnnotationConfigApplicationContext(SpringConfig.class);
+        UserService testUser = context.getBean("testUser", UserService.class);
+        testUser.testTransaction();
+    }
 ```
 
 #### 结合其他理解
@@ -486,5 +655,22 @@ Spring中有2种方式操作事务：
 	// JdbcTemplate
 	jdbcTemplate.query(sql, new BeanPropertyRowMapper<User>(User.class))
     利用BeanPropertyRowMapper就可以完成数据集与bean的注入
+        
+3. 关于事务
+     在上面例子中，我们使用了注解方式和xml方式很方便的在Spring中开启事务管理，回想之前在JavaWeb的学习中，我们在代码里面写死了事务的判断，如下：
+        try{
+            // 1. 开启事务 不自动提交
+            
+            // 2. dao逻辑1
+            
+            // 3. 模拟异常
+            
+            // 4. dao逻辑2
+            
+            // 5. 提交事务
+        }catch{
+            // 6. 回滚事务
+        }
+		后面 配合ThreadLocal和Filter组件 来控制事务提交和回滚
 ```
 
