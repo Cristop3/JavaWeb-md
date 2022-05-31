@@ -10,6 +10,7 @@
     2.1 MAVEN_HOME // 系统变量
     2.2 path：%MAVEN_HOME%\bin
     2.3 cmd 校验是否配置成功 mvn -v
+    2.4 mvn help:system 检验
     
 3. 配置本地仓库
     3.1 任意位置创建文件夹  maven-repository
@@ -34,8 +35,8 @@
     5.4 "Local repository"设置为 本地库      
             
 6. 创建一个新模块 build system基于Maven
-    6.1 新建webapp文件夹
-    6.2 项目结构（Project Structure）中选择Modules，选择上面新建的模块中的"Web" 在"Deployment Descriptors"中添加web.xml到指定的位置 也就是src\main\java\webapp
+    6.1 在main文件夹下新建webapp文件夹
+    6.2 项目结构（Project Structure）中选择Modules，选择上面新建的模块中的"Web" 在"Deployment Descriptors"中添加web.xml到指定的位置 也就是src\main\webapp
      
 7. pom.xml配置
     7.1  配置打包方式为war包（JavaWeb项目） 
