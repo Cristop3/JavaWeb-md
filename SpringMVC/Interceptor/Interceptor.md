@@ -397,3 +397,31 @@ AbstractAnnotationConfigDispatcherServletInitializer并将其部署到Servlet3.0
 // 配置spring.xml
 ```
 
+## 2022.06.07
+
+#### SpringMVC执行流程
+
+```java
+1. 客户端向服务器发送http请求，此时请求被SpringMVC的前端控制器"DispatcherServlet"捕获。
+2. "DispatcherServlet"对请求的URL进行解析，得到请求资源标识符URI，判断请求URI所对应的映射
+    2.1 不存在
+    	2.1.1 判断是否配置了"mvc:default-servlet-handler"
+    		2.1.1.1 若未配置，则控制台报映射查找不到，客户端显示404错误
+    		2.1.1.2 若有配置，则访问目标资源（一般为静态资源，如：JS\html\css），若还是找不到则客户端显示404错误
+    2.2 存在
+    	2.2.1 根据该URI，调用"HandlerMapping"获得该"Handler"配置的所有相关的对象（包括Handler对象以及Handler对象对应的拦截器），最后以"HandlerExecutionChain"执行链对象的形式返回
+    	2.2.2 "DispatcherServlet" 根据获得的Handler，选择一个合适的"HandlerAdapter"
+    	2.2.3 如果成功获得"HandlerAdapter"，此时将开始执行拦截器的"preHandler(…)"方法【正向】 
+    	2.2.4 提取Request中的模型数据，填充Handler入参，开始执行Handler（Controller)方法，处理请求。在填充Handler的入参过程中，根据你的配置，Spring将帮你做一些额外的工作：
+			2.2.4.1  HttpMessageConveter： 将请求消息（如Json、xml等数据）转换成一个对象，将对象转换为指定的响应信息
+    		 2.2.4.2 数据转换：对请求消息进行数据转换。如String转换成Integer、Double等
+    		 2.2.4.3 数据格式化：对请求消息进行数据格式化。 如将字符串转换成格式化数字或格式化日期等
+    		 2.2.4.4 数据验证： 验证数据的有效性（长度、格式等），验证结果存储到BindingResult或Error中
+         2.2.5  Handler执行完成后，向DispatcherServlet 返回一个ModelAndView对象。
+    	 2.2.6 此时将开始执行拦截器的postHandle(...)方法【逆向】。
+		2.2.7 根据返回的ModelAndView（此时会判断是否存在异常：如果存在异常，则执行
+HandlerExceptionResolver进行异常处理）选择一个适合的ViewResolver进行视图解析，根据Model和View，来渲染视图。
+		2.2.8 渲染视图完毕执行拦截器的afterCompletion(…)方法【逆向】。
+    	2.2.9 将渲染结果返回给客户端。
+```
+
