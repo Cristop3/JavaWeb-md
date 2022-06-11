@@ -91,7 +91,7 @@
             以包为单位，将包下所有的映射文件引入核心配置文件
             注意：此方式必须保证mapper接口和mapper映射文件必须在相同的包下
             -->
-            <package name="com.atguigu.mybatis.mapper"/>
+            <package name="com.company.mybatis.mapper"/>
         </mappers>
 
 ```
