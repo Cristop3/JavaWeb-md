@@ -186,3 +186,96 @@ getRequestDispatcher是请求转发。
 2. 实现Runnable接口，实现run方法
 ```
 
+## 2022.07.06
+
+#### 关于静态成员和静态初始化块父子类下执行先后顺序
+
+```java
+public class Test1 {
+
+    static int cnt = 6;
+ 
+    static {
+        cnt += 9;
+    }
+ 
+    public static void main(String[] args) {
+        System.out.println("cnt =" + cnt);
+    }
+ 
+    static {
+        cnt /= 3;
+    }
+}
+
+// 解析
+（1）父类静态成员和静态初始化块，按在代码中出现的顺序依次执行。（若静态初始化在前静态成员在后，则后面覆盖前面）
+（2）子类静态成员和静态初始化块，按在代码中出现的顺序依次执行。
+（3）父类实例成员和实例初始化块，按在代码中出现的顺序依次执行。
+（4）执行父类构造方法。
+（5）子类实例成员和实例初始化块，按在代码中出现的顺序依次执行。
+（6）执行子类构造方法。
+```
+
+#### 创建新线程的两种方式
+
+```java
+// 方法1：继承Thread 重写run方法
+class TestThread extends Thread{
+    @Override
+    public void run(){
+        // 逻辑...
+    }
+}
+TestThread tt = new TestThread()
+tt.start()
+ 
+// 方法2：实现Runnable接口 实现run方法
+class TestThread implements Runnable{
+    public void run(){
+        // 逻辑...
+    }
+}
+TestThread tt = new TestThread()
+new Thread(tt).start()
+    
+若直接调用线程实例的run()方法，则跟当前线程同属一个线程    
+```
+
+#### 何为类方法
+
+```java
+所谓类的方法就是指类中用static 修饰的方法（非static 为实例方法）
+```
+
+#### java语言的下面几种数组复制方法中，哪个效率最高？
+
+```java
+System.arraycopy > clone > Arrays.copyOf > for循环
+```
+
+#### 有关SPRING的事务传播特性
+
+```java
+PROPAGATION_REQUIRED--支持当前事务，如果当前没有事务，就新建一个事务。这是最常见的选择。 
+PROPAGATION_SUPPORTS--支持当前事务，如果当前没有事务，就以非事务方式执行。 
+PROPAGATION_MANDATORY--支持当前事务，如果当前没有事务，就抛出异常。 
+PROPAGATION_REQUIRES_NEW--新建事务，如果当前存在事务，把当前事务挂起。 
+PROPAGATION_NOT_SUPPORTED--以非事务方式执行操作，如果当前存在事务，就把当前事务挂起。 
+PROPAGATION_NEVER--以非事务方式执行，如果当前存在事务，则抛出异常。
+```
+
+#### ArrayList与LinkedList优缺点及使用场景
+
+```java
+ArrayList：增删慢，查询快。
+由于是数据组实现，需要连续的内存空间，如果删除数组中间的值，为了保证下标的有效性，需要将后面的数据往前移，所以删除慢。
+当插入A对象到B对象的前面时，需要将B对象和B对象之后的所有对象后移一位，再插入A对象。所以插入慢。
+数组的大小是固定的，如果数组满了，需要重新分配空间，new一个新数组并copy旧数据之后再增加新数据，所以增加慢。
+因为是连续内存空间，可以通过下标查询数据，所以查询快。
+
+LInkedList：增删快，查询慢。
+由于是链表实现，当前节点的next指向下一个节点，prev指向上一个节点，不需要连续的内存空间，所以增删快。
+因为不是连续内存空间，所以不能使用下标查询，只能通过next遍历，所以查询慢。
+```
+
