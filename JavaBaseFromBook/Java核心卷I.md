@@ -732,6 +732,28 @@ java-java11: https://www.apiref.com/java11-zh/java.base/java/util/Arrays.html#so
 ### 异常
 
 ```java
+20220707补充
+注意：异常和错误的区别：异常能被程序本身可以处理，错误是无法处理。
+
+通常，Java的异常(包括Exception和Error)分为 可查的异常（checked exceptions）和不可查的异常（unchecked exceptions） 。
+可查异常（编译器要求必须处置的异常）： 正确的程序在运行中，很容易出现的、情理可容的异常状况 。 可查异常虽然是异常状况，但在一定程度上它的发生是可以预计的，而且一旦发生这种异常 状况，就必须采取某种方式进行处理。
+
+除了RuntimeException及其子类以外，其他的Exception类及其子类都属于可查异常。这种异常的特点是Java编译器会检查它，也就是说，当程序中可能出现这类异常，要么用try-catch语句捕获它，要么用throws子句声明抛出它，否则编译不会通过。
+
+不可查异常(编译器不要求强制处置的异常):包括运行时异常（RuntimeException与其子类）和错误（Error）。
+
+Exception 这种异常分两大类运行时异常和非运行时异常(编译异常)。程序中应当尽可能去处理这些异常。
+
+运行时异常： 都是RuntimeException类及其子类异常，如NullPointerException(空指针异常)、IndexOutOfBoundsException(下标越界异常)等，这些异常是不检查异常，程序中可以选择捕获处理，也可以不处理。这些异常一般是由程序逻辑错误引起的，程序应该从逻辑角度尽可能避免这类异常的发生。
+
+运行时异常的特点是Java编译器不会检查它，也就是说，当程序中可能出现这类异常，即使没有用try-catch语句捕获它，也没有用throws子句声明抛出它，也会编译通过。
+
+非运行时异常 （编译异常）： 是RuntimeException以外的异常，类型上都属于Exception类及其子类。从程序语法角度讲是必须进行处理的异常，如果不处理，程序就不能编译通过。如IOException、SQLException等以及用户自定义的Exception异常，一般情况下不自定义检查异常。
+```
+
+
+
+```java
 1. 所有的异常都是由Throwable继承下来的，下层分为两个分支：Error和Exception
     1.1 Error
         Error类层次结构描述了Java运行时系统的"内部错误"和"资源耗尽错误"
@@ -1438,7 +1460,9 @@ ClassName classname = new ClassName()
     参数列表必须不同（个数不同、或类型不同、参数类型排列顺序不同等）；
     方法的返回类型可以相同或者可以不同；
     仅仅返回类型不同不足以称为方法的重载；
+    
     重载是发生在编译时（编译器可以根据参数类型来选择使用哪个方法）。
+    重载的本质是在编译期就会根据参数的静态类型来决定重载方法的版本
 ```
 
 ##### 方法重写
@@ -1449,9 +1473,20 @@ ClassName classname = new ClassName()
     方法必须和父类一致，包括“返回值类型”、“方法名”、“参数列表”；
     重写方法可以使用“@Override”注解来标识；
     子类中重写方法的访问权限不能低于父类中的方法的访问权限
+    
+    重写的本质在运行期确定接收者的实际类型。
 ```
 
 ##### 初始化类中执行顺序
+
+```java
+20220707补充
+
+1. 其中若同时存在静态属性或者静态域时，按照代码的位置先后顺序执行 (jvm加载类时执行，且仅执行一次)
+2.  构造代码块，类中执行使用{}定义，每一次创建对象时执行
+    
+静态 > 构造代码块 > 构造方法
+```
 
 ```java
 1. 静态属性：static开头定义的属性
@@ -1466,7 +1501,7 @@ ClassName classname = new ClassName()
 3. 普通属性：非static定义的属性    
     private String field = "123"
 
-4. 普通方法块：{}包起来的代码块    
+4. 普通方法块（构造代码块）：{}包起来的代码块    
     {
          System.out.println(field);
      }
@@ -1508,10 +1543,16 @@ ClassName classname = new ClassName()
 
 ```java
 1. 多态是指同一个行为具有不同表现形式，是指一个类实例（对象）的相同方法在不同情形下具有不同的表现形式
-2. 多态实现条件：
-    继承；
-    重写父类方法；
-    父类引用指向子类对象。
+    
+2. 多态实现必要条件：
+    子类必须继承父类；Son extends Father
+    必须有重写父类方法； @Override
+    父类引用指向子类对象。Father father = new Son()
+    
+3. 多态实现途径
+    重载
+    重写
+    接口实现
 ```
 
 ##### 组合
@@ -1540,7 +1581,11 @@ public class Orange{
 
 ```java
 "向上转型"：通过子类对象（小范围）转化为父类对象（大范围），这种转换是自动完成的，不用强制
+    Father father = new Son()
+    
 "向下转型"：通过父类对象（大范围）实例化子类对象（小范围），这种转换不是自动完成的，需要强制指定
+    Father father = new Father()
+    Son son = (Son) father
 ```
 
 ##### static
@@ -1939,3 +1984,9 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;    
 ```
+
+## 20220707
+
+### 多线程
+
+![thread.png](https://s2.loli.net/2022/07/07/X31gLDYfBZjqkQJ.png)

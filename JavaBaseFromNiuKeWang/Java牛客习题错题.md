@@ -217,7 +217,7 @@ public class Test1 {
 （6）执行子类构造方法。
 ```
 
-#### 创建新线程的两种方式
+#### 创建新线程的两种方式（无返回值）
 
 ```java
 // 方法1：继承Thread 重写run方法
@@ -277,5 +277,21 @@ ArrayList：增删慢，查询快。
 LInkedList：增删快，查询慢。
 由于是链表实现，当前节点的next指向下一个节点，prev指向上一个节点，不需要连续的内存空间，所以增删快。
 因为不是连续内存空间，所以不能使用下标查询，只能通过next遍历，所以查询慢。
+```
+
+## 2022.07.07
+
+#### Java中创建对象的方式
+
+```java
+1. 使用 new 关键字（最常用）： ObjectName obj = new ObjectName();
+
+2. 使用反射的Class类的newInstance()方法： ObjectName obj = ObjectName.class.newInstance(); 
+
+3. 使用反射的Constructor类的newInstance()方法： ObjectName obj = ObjectName.class.getConstructor.newInstance();
+
+4. 使用对象克隆clone()方法： ObjectName obj = obj.clone(); 
+
+5. 使用反序列化（ObjectInputStream）的readObject()方法： try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(FILE_NAME))) { ObjectName obj = ois.readObject(); }
 ```
 
