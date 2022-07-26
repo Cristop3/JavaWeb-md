@@ -328,3 +328,163 @@ StringBuilder、StringBuffer的方法都会调用AbstractStringBuilder中的公�
     效率比较String < StringBuffer < StringBuilder
 ```
 
+## 2022.07.25
+
+#### synchronized关键字
+
+```java
+public class Test {
+    // 同步非静态方法 锁得是“类实例对象this”
+    private synchronized void a() {
+    }
+    // 同步静态方法 锁得是“Class对象”
+    private synchronized static void c() {
+    }
+    private void b() {
+        // 同步代码块 锁得是小括号中“指定的” 如下：锁的“类实例对象this”
+        synchronized (this) {
+        }
+    }
+    private void d() {
+        // 同步代码块 锁得是小括号中“指定的” 如下：锁的“Class对象”
+        synchronized (Test.class) {
+        }
+    }
+}
+```
+
+#### 命令行 执行Java和编译Java
+
+```java
+java XXX // 执行java
+javac XXX.java // 编译java源文件
+```
+
+#### 关于接口Interface中隐式声明
+
+```java
+接口，比抽象类还要抽象的类。
+	1. 方法的隐式声明
+    接口中每一个方法也是隐式抽象的,接口中的方***被隐式的指定为 public abstract （只能是 public abstract，其他修饰符都会报错）。
+	2. 变量的隐式声明
+    接口中可以含有变量，但是接口中的变量会被隐式的指定为  public static final   变量（并且只能是 public，用 private 修饰会报编译错误。）"同时均可以省略不写" 但是必要的是变量的"类型"和"初始值"(final)
+	3. 规则
+    接口中的方法是不能在接口中实现的，只能由实现接口的类来实现接口中的方法。
+
+    注：
+接口是隐式抽象的，当声明一个接口的时候，不必使用abstract关键字。
+接口中每一个方法也是隐式抽象的，声明时同样不需要abstract关键字。
+接口中的方法都是公有的。public
+```
+
+#### 关于HashMap与HashTable
+
+```java
+ 1.  关于HashMap的一些说法： 
+     a)  HashMap实际上是一个“链表散列”的数据结构，即数组和链表的结合体。HashMap的底层结构是一个数组，数组中的每一项是一条链表。
+     b)  HashMap的实例有俩个参数影响其性能： “初始容量” 和 装填因子。 
+     c)  HashMap实现不同步，线程不安全。  HashTable线程安全 
+     d)  HashMap中的key-value都是存储在Entry中的。 
+     e)  HashMap可以存null键和null值，不保证元素的顺序恒久不变，它的底层使用的是数组和链表，通过hashCode()方法和equals方法保证键的唯一性 
+     f)  解决冲突主要有三种方法：定址法，拉链法，再散列法。
+     HashMap是采用拉链法解决哈希冲突的。 注： 链表法是将相同hash值的对象组成一个链表放在hash值对应的槽位；    用开放定址法解决冲突的做法是：当冲突发生时，使用某种探查(亦称探测)技术在散列表中形成一个探查(测)序列。 沿此序列逐个单元地查找，直到找到给定 的关键字，或者碰到一个开放的地址(即该地址单元为空)为止（若要插入，在探查到开放的地址，则可将待插入的新结点存人该地址单元）。   拉链法解决冲突的做法是： 将所有关键字为同义词的结点链接在同一个单链表中 。若选定的散列表长度为m，则可将散列表定义为一个由m个头指针组成的指针数 组T[0..m-1]。凡是散列地址为i的结点，均插入到以T[i]为头指针的单链表中。T中各分量的初值均应为空指针。在拉链法中，装填因子α可以大于1，但一般均取α≤1。拉链法适合未规定元素的大小。 
+     
+ 2.  Hashtable和HashMap的区别： 
+     a)   继承不同。  public class Hashtable extends Dictionary implements Map public class HashMap extends  AbstractMap implements Map 
+     b)  Hashtable中的方法是同步的，而HashMap中的方法在缺省情况下是非同步的。在多线程并发的环境下，可以直接使用Hashtable，但是要使用HashMap的话就要自己增加同步处理了。 
+     c)  Hashtable 中， key 和 value 都不允许出现 null 值。 在 HashMap 中， null 可以作为键，这样的键只有一个；可以有一个或多个键所对应的值为 null 。当 get() 方法返回 null 值时，即可以表示 HashMap 中没有该键，也可以表示该键所对应的值为 null 。因此，在 HashMap 中不能由 get() 方法来判断 HashMap 中是否存在某个键， 而应该用 containsKey() 方法来判断。 
+     d)  两个遍历方式的内部实现上不同。Hashtable、HashMap都使用了Iterator。而由于历史原因，Hashtable还使用了Enumeration的方式 。 
+     e)  哈希值的使用不同，HashTable直接使用对象的hashCode。而HashMap重新计算hash值。 
+     f)  Hashtable和HashMap它们两个内部实现方式的数组的初始大小和扩容的方式。HashTable中hash数组默认大小是11，增加的方式是old*2+1。HashMap中hash数组的默认大小是16，而且一定是2的指数。   
+         注：  HashSet子类依靠hashCode()和equal()方法来区分重复元素。      
+         HashSet内部使用Map保存数据，即将HashSet的数据作为Map的key值保存，这也是HashSet中元素不能重复的原因。而Map中保存key值的,会去判断当前Map中是否含有该Key对象，内部是先通过key的hashCode,确定有相同的hashCode之后，再通过equals方法判断是否相同。
+```
+
+#### 根类Object中包含的方法及用法
+
+```java
+1. protected Object clone()
+    创建并返回此对象的一个副本。 
+    
+2. boolean equals(Object obj)
+    指示其他某个对象是否与此对象“相等”。 
+    
+3. protected void finalize()
+    当垃圾回收器确定不存在对该对象的更多引用时，由对象的垃圾回收器调用此方法。 
+    
+4. class  getClass()
+    返回此 Object 的运行时类。 
+    
+5. int hashCode()
+    返回该对象的哈希码值。 
+    
+6. void notify()
+    唤醒在此对象监视器上等待的单个线程。 
+    
+7. void notifyAll()
+    唤醒在此对象监视器上等待的所有线程。
+    
+8. String toString()
+    返回该对象的字符串表示。
+    
+9. void wait()
+    在其他线程调用此对象的 notify() 方法或 notifyAll() 方法前，导致当前线程等待。 
+    
+10. void wait(long timeout)
+    在其他线程调用此对象的 notify() 方法或 notifyAll() 方法，或者超过指定的时间量前，导致当前线程等待。
+    
+11. void wait(long timeout, int nanos)
+    在其他线程调用此对象的 notify() 方法或 notifyAll() 方法，或者其他某个线程中断当前线程，或者已超过某个实际时间量前，导致当前线程等待。
+```
+
+#### 二维数组声明的几种方式
+
+```java
+int [][] table = new int[2][2];
+int [][] table = new int[2][];
+int [] table [] = new int[2][2];
+int [] table [] = new int[2][];
+```
+
+## 20220726
+
+#### 关于&运算符计算方式
+
+```java
+13 & 17 
+    13： 01101
+    17： 10001
+    
+此时：若对应位都是1(真)，则为1(真)，否则为0(假)
+    结果：00001 -> 1
+```
+
+#### 内存划分
+
+```java
+新生代（Young）
+    Eden 区
+    From Survivor 区
+    To Survivor 区
+老生代（Old）
+```
+
+#### 类型转换规则
+
+```java
+byte b1=1,b2=2,b3,b6,b8;
+final byte b4=4,b5=6,b7;
+b3=(b1+b2);  /*语句1*/ 强转 b3 = (byte)(b1+b2)
+b6=b4+b5;    /*语句2*/ 不自动提升 主要看b6类型 即通过
+b8=(b1+b4);  /*语句3*/ 非final如b1自动提升为int 即强转 b8 = (byte)(b1+b4)
+b7=(b2+b5);  /*语句4*/ final一旦定义 则不修改
+System.out.println(b3+b6);
+
+定义：
+     1、所有的byte,short,char型的值将被提升为int型；
+	2、如果有一个操作数是long型，计算结果是long型；
+	3、如果有一个操作数是float型，计算结果是float型；
+	4、如果有一个操作数是double型，计算结果是double型；
+	5、被fianl修饰的变量不会自动改变类型，当2个final修饰相操作时，结果会根据左边变量的类型而转化。
+```
+
