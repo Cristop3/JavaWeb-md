@@ -441,9 +441,22 @@ javac XXX.java // 编译java源文件
 
 ```java
 int [][] table = new int[2][2];
-int [][] table = new int[2][];
+int [][] table = new int[2][]; 
+
 int [] table [] = new int[2][2];
 int [] table [] = new int[2][];
+
+1.  定义一维数组时，必须显式指明数组的长度
+    int []a = new int[3]
+    int a[] = new int[3]
+    
+2. 定义多维数组时，其一维数组的长度必须首先指明，其他维数组长度可以稍后指定
+    int a[][] = new int[3][]
+
+3. “[]” 是数组运算符的意思，在声明一个数组时，数组运算符可以放在数据类型与变量之间，也可以放在变量之后
+    int a[][] = new int[3][3]
+    int []a[] = new int[3][3]
+    int [][]a = new int[3][]
 ```
 
 ## 2022.07.26
@@ -524,5 +537,180 @@ System.out.println(b3+b6);
 	•否则，如果其中一个操作数是 float 类型，另一个操作数将会转换为 float 类型。
 	•否则， 如果其中一个操作数是 long 类型， 另一个操作数将会转换为 long 类型。
 	•否则， 两个操作数都将被转换为 int 类型。
+```
+
+## 2022.08.02
+
+#### 内部类
+
+```java
+1. 成员内部类
+    1.1 非静态成员内部类
+    	public class Outer{ 
+            private int age = 99;
+            String name = "Coco";
+            public class Inner{ // 特点1
+                String name = "Jayden"; // 特点4
+                public void show(){
+                    System.out.println(Outer.this.name); // 特点5
+                    System.out.println(name);
+                    System.out.println(age); // 特点2
+                }
+            }
+            public Inner getInnerClass(){
+                return new Inner();
+            }
+            public static void main(String[] args){
+                Outer o = new Outer();
+                Inner in = o.new Inner(); // 特点3
+                in.show();
+            }
+        }
+		
+		特点：
+            1.1.1 Inner类可以使用任意的"访问控制符"，如public、protected、private、default等（上述注释特点1）
+            1.1.2 Inner类中的方法可以直接访问Outer类中的成员数据，而不受"访问控制符"影响，如上述特点2处访问Outer类中的private属性（上述注释特点2）
+            1.1.3 如何创建Inner类的对象：内部类 对象名 = 外部类对象.new 内部类() （上述注释特点3）
+            1.1.4 编译后会产生两个.class文件
+            1.1.5 非静态内部成员类，不能定义任何static变量和方法
+            1.1.6 Outer类不能直接访问Inner类成员和方法，可先创建内部类的对象，再来访问
+            1.1.7 若Inner类和Outer类具有相同的成员变量和方法，Inner类默认访问自己的成员变量和方法，若要访问外部类，则使用this关键字：Outer.this.name（上述注释特点5）
+            
+            
+    1.2 静态成员内部类
+        public class Outer{
+			private int age = 99;
+			static String name = "Coco";
+             static String sex = "man";
+			public static class Inner{ // 特点1
+				String name = "Jayden";
+				public void show(){
+					System.out.println(Outer.name); // 特点4
+					System.out.println(name);	
+                      System.out.println(new Outer().age); // 特点3
+                      System.out.println(sex); // 特点5
+				}
+			}
+			public static void main(String[] args){
+				Inner i = new Inner(); // 特点2
+				i.show();
+			}
+		}
+
+		特点：
+            1.2.1 静态内部类就是使用static关键字修饰的成员内部类（上述注释特点1）
+            1.2.2 静态内部类不能直接访问外部类的非静态成员，但可以通过new Outer().xxx来访问（上述注释特点3）
+            1.2.3 若外部静态成员与内部静态成员名称相同，则需要访问外部类静态成员时，可以使用"类名.静态成员"指定访问外部（上述注释特点4）
+            1.2.4 若外部静态成员与内部静态成员名称不同时，则直接通过"成员名"直接调用外部类的静态成员（上述注释特点5）
+            1.2.5 创建静态内部类的对象时，不需要外部类对象，直接"内部类 对象名 = new 内部类()" （上述注释特点2）
+    
+2. 方法内部类（局部内部类）
+          public class Outer{
+            public void Show(){
+                final int a = 25;
+                int b = 13;
+                class Inner{ // 特点1
+                    int c = 2;
+                    public void print(){
+                        System.out.println("访问外部类:" + a); // 特点2
+                        System.out.println("访问内部类:" + c);
+                    }
+                }
+                Inner i = new Inner();
+                i.print();
+            }
+            public static void main(String[] args){
+                Outer o = new Outer();
+                o.show();
+            }
+        } 
+
+	    特点：
+            2.1 其作用域仅限于方法内，方法外部无法访问该内部类
+    	    2.2 局部内部类就像方法里面的一个局部变量一样，"不能有public、protected、private、以及static修饰符，但可以有abstract、final修饰符"（上述注释特点1）
+            2.3 方法内部类中，只能去访问方法体中的"final"类型的局部变量（上述注释特点2）
+            原因：当方法被调用运行完毕之后，局部变量就已消亡了。但内部类对象可能还存在,直到没有被引用时才会消亡。此时就会出现一种情况，就是内部类要访问一个不存在的局部变量;使用final修饰符不仅会保持对象的引用不会改变,而且编译器还会持续维护这个对象在回调方法中的生命周期.局部内部类并不是直接调用方法传进来的参数，而是内部类将传进来的参数通过自己的构造器备份到了自己的内部，自己内部的方法调用的实际是自己的属性而不是外部类方法的参数（注意:在JDK8版本之中,方法内部类中调用方法中的局部变量,可以不需要修饰为 final,匿名内部类也是一样的，主要是JDK8之后增加了 Effectively final 功能）
+            
+3. 匿名内部类
+        public class OuterClass {
+            public InnerClass getInnerClass(final int   num,String str2){
+                return new InnerClass(){
+                    int number = num + 3;
+                    public int getNumber(){
+                        return number;
+                    }
+                };        /* 注意：分号不能省 */
+            }
+            public static void main(String[] args) {
+                OuterClass out = new OuterClass();
+                InnerClass inner = out.getInnerClass(2, "chenssy");
+                System.out.println(inner.getNumber());
+            }
+        }
+        interface InnerClass {
+            int getNumber();
+        } 
+
+		特点：
+            3.1 匿名内部类是直接使用 new 来生成一个对象的引用
+            3.2 匿名内部类中是不能定义构造函数的,匿名内部类中不能存在任何的静态成员变量和静态方法
+```
+
+![内部类.png](https://s2.loli.net/2022/08/02/WTIP3dghtbvqKCc.png)
+
+#### 常用修饰符
+
+```java
+1. 权限修饰符：
+    private :        修饰私有变量
+    默认修饰符default（不用把default写出来）： 比private限制更少，但比protected限制更多
+    protected:    修饰受保护变量
+    public :         修饰公有变量
+
+2. 状态修饰符：
+    final 最终变量（final修饰类，该类不能被继承，final修饰方法，该方法不能被重写，final修饰变量，该变量不能被重新赋值（相当于常量））
+    static 静态变量（随着类的加载而加载，优先于对象存在，被所有对象所共享，可以通过类名调用）且静态变量只能在类主体中定义，不能在方法中定义。 静态变量属于类所有而不属于方法。
+
+3. 抽象修饰符：
+	abstract 抽象类&抽象方法（抽象类不能被实例化，抽象类中不一定有抽象方法，但有抽象方法的类必须定义为抽象类）
+```
+
+#### try-catch-finally
+
+```java
+try的形式有三种：
+    try-catch
+    try-finally
+    try-catch-finally
+但catch和finally语句不能同时省略！
+```
+
+#### 位运算符
+
+```java
+1. << 左移运算符
+    "丢弃左边指定位数，右边补0"
+    int x = 123
+    x << 1 // 左移1位
+    x << 8 // 左移8位
+    x << 32 // int类型超过32位时，需与32取余值为左移位数 32%32=0 位
+    x << 40 // int类型超过32位时，需与32取余值为左移位数 40%32=8 位
+    
+    long xl = 2342342423L
+    x << 1 // 左移1位
+    x << 8 // 左移8位
+    x << 64 // long类型超过64位时，需与64取余值为左移位数 64%64=0 位
+    x << 72 // long类型超过64位时，需与64取余值为左移位数 72%64=8 位
+    
+    左移后，最高位0表示正数，1表示负数
+    若左移1位，则直接(值*2)
+    
+    其中double，float不能进行移位操作
+    
+2. >> 右移运算符
+    "丢弃右边指定位数，左边补上符号位"，其中符号位表示原数据的最高位0或者1
+    
+3. >>> 无符号右移运算符
+    "丢弃右边指定位数，左边补0"
 ```
 
