@@ -437,6 +437,8 @@ javac XXX.java // 编译java源文件
     在其他线程调用此对象的 notify() 方法或 notifyAll() 方法，或者其他某个线程中断当前线程，或者已超过某个实际时间量前，导致当前线程等待。
 ```
 
+![Object方法.png](https://s2.loli.net/2022/08/03/4dMf6817vUErKDC.png)
+
 #### 二维数组声明的几种方式
 
 ```java
@@ -604,7 +606,7 @@ System.out.println(b3+b6);
             1.2.4 若外部静态成员与内部静态成员名称不同时，则直接通过"成员名"直接调用外部类的静态成员（上述注释特点5）
             1.2.5 创建静态内部类的对象时，不需要外部类对象，直接"内部类 对象名 = new 内部类()" （上述注释特点2）
     
-2. 方法内部类（局部内部类）
+2. 块、构造器、方法中的内部类（局部内部类）
           public class Outer{
             public void Show(){
                 final int a = 25;
@@ -654,6 +656,34 @@ System.out.println(b3+b6);
 		特点：
             3.1 匿名内部类是直接使用 new 来生成一个对象的引用
             3.2 匿名内部类中是不能定义构造函数的,匿名内部类中不能存在任何的静态成员变量和静态方法
+            
+            
+外部类(最大的类)
+    权限修饰符可用
+            public（该类在项目所有类中可以被导入使用）
+            default（该类只能在同一个package中被导入使用）
+    状态修饰符可用
+            final（final修饰类，该类不能被继承）
+    抽象修饰符可用
+            abstract（抽象类）
+
+成员内部类
+    权限修饰符可用
+            public
+            default
+            protected
+            private
+    状态修饰符可用
+            final
+            static
+    抽象修饰符可用
+            abstract
+            
+局部内部类
+    状态修饰符可用
+            final
+    抽象修饰符可用
+            abstract         
 ```
 
 ![内部类.png](https://s2.loli.net/2022/08/02/WTIP3dghtbvqKCc.png)
@@ -683,6 +713,10 @@ try的形式有三种：
     try-finally
     try-catch-finally
 但catch和finally语句不能同时省略！
+        
+1. finally在try的return表达式执行之后，返回之前
+2. 如果finally有return则覆盖try的return
+3. 如果try的return语句有异常，则其return语句失效。       
 ```
 
 #### 位运算符
@@ -712,5 +746,150 @@ try的形式有三种：
     
 3. >>> 无符号右移运算符
     "丢弃右边指定位数，左边补0"
+```
+
+## 2022.08.03
+
+#### 关于静态变量与前置后置++
+
+```java
+public class Test{ 
+    private static int i=1; // 注意1
+    public int getNext(){ 
+         return i++; // 注意2
+    } 
+    public static void main(String [] args){ 
+        Test test=new Test(); 
+        Test testObject=new Test(); 
+        test.getNext(); 
+        testObject.getNext(); 
+        System.out.println(testObject.getNext());  // 3
+        System.out.println(i) // 4
+    } 
+}
+
+1. 前置后置++
+    return i++ 此时，先返回i,后再让i+1
+    return ++i 此时，先让i+1,后返回i
+    // 区别
+    return i = i + 1 此时，先让i+1,后返回i
+    
+2. static属性
+    因为i是static的，是类属性，所以不管有多少对象，都共用的一个变量
+    // 区别
+    若private int i = 1
+    则下面test&testObject各自拥有一个独立的变量i
+```
+
+#### 修饰符及其顺序
+
+![修饰符顺序.png](https://s2.loli.net/2022/08/03/71anfWDOozKGmjq.png)
+
+## 2022.08.04
+
+#### 身份证正则
+
+```java
+1. 15位
+    isIDCard=/^[1-9]\d{7}((0\d)|(1[0-2]))(([0|1|2]\d)|3[0-1])\d{3}$/
+2. 18位
+    isIDCard=/^[1-9]\d{5}[1-9]\d{3}((0\d)|(1[0-2]))(([0|1|2]\d)|3[0-1])\d{4}$/
+```
+
+## 2022.08.05
+
+#### 关于Integer缓存比较
+
+```java
+Integer a = 1; 
+Integer b = 1;
+Integer c = 500;
+Integer d = 500;
+System.out.print(a == b);
+System.out.print(c == d);
+
+1. 首先1-4行，均会自动装箱调用Integer.valueOf(int)方法 // 返回一个Integer指定的int值的Integer实例
+2. 此方法将始终缓存-128到127（含）范围内的值，在这个区间内调用valueOf不会创建新的实例
+3. 因此a == b 而500超过范围了，因此，c != d
+```
+
+#### Java三大注解
+
+```java
+1.Java三大注解分别是@Override @Deprecated @Suppresswarnings
+2.@Override 注解表名子类中覆盖了超类中的某个方法，如果写错了覆盖形式，编译器会报错
+3.@Deprecated 表明不希望别人在以后使用这个类，方法，变量等等
+4.@Suppresswarnings 达到抑制编译器产生警告的目的，但是不建议使用，因为后期编码人员看不懂编译器提示的警告，不能更好的选择更好的类去完成任务
+```
+
+#### HashTable与HashMap区别
+
+```java
+1.继承的父类不同：HashTable继承Dictory类，HashMap继承AbstractMap.但都实现了Map接口；
+    
+2.线程安全性不同：HashTable是线程安全的,适用于多线程；HashMap是非线程安全，更适合于单线程；
+    
+3.是否提供contains方法：HashTable中保留了contains方法，与constainsValue功能相同；HashMap中去掉了contains方法；
+    
+4.key和value是否可为null值：HashTable的key、value都不允许null值；HashMap，null可以作为key；
+    
+5.遍历方式的内部实现不同：HashTable、HashMap都使用了Iterator，HashTable还使用过Enumeration方式；
+    
+6.hash值不同：HashTable直接使用对象的hashCode，而HashMap重新计算hash值。
+    
+7.内部使用的数组初始化和扩容方式不同：Hashtable不要求底层数组的容量一定要为2的整数次幂，而HashMap则要求一定为2的整数次幂；Hashtable扩容时，将容量变为原来的2倍加1，而HashMap扩容时，将容量变为原来的2倍。
+```
+
+#### 关于继承中的初始化过程
+
+```java
+父类静态代码块-》子类静态代码块-》父类构造代码块-》父类构造函数-》子类构造代码块-》子类构造函数
+    
+1. 初始化父类中的静态成员变量和静态代码块 ； 
+2. 初始化子类中的静态成员变量和静态代码块 ； 
+3. 初始化父类的普通成员变量和代码块，再执行父类的构造方法；
+4. 初始化子类的普通成员变量和代码块，再执行子类的构造方法； 
+```
+
+#### 四种引用类型
+
+```java
+一，强引用
+    Object obj = new Object(); //只要obj还指向Object对象，Object对象就不会被回收 obj = null; //手动置null
+    只要强引用存在，垃圾回收器将永远不会回收被引用的对象，哪怕内存不足时，JVM也会直接抛出OutOfMemoryError，不会去回收。如果想中断强引用与对象之间的联系，可以显示的将强引用赋值为null，这样一来，JVM就可以适时的回收对象了
+        
+二，软引用
+    软引用是用来描述一些非必需但仍有用的对象。在内存足够的时候，软引用对象不会被回收，只有在内存不足时，系统则会回收软引用对象，如果回收了软引用对象之后仍然没有足够的内存，才会抛出内存溢出异常。这种特性常常被用来实现缓存技术，比如网页缓存，图片缓存等。
+	在 JDK1.2 之后，用java.lang.ref.SoftReference类来表示软引用。
+        
+三，弱引用
+    弱引用的引用强度比软引用要更弱一些，无论内存是否足够，只要 JVM 开始进行垃圾回收，那些被弱引用关联的对象都会被回收。在 JDK1.2 之后，用 java.lang.ref.WeakReference 来表示弱引用。
+        
+四，虚引用
+    虚引用是最弱的一种引用关系，如果一个对象仅持有虚引用，那么它就和没有任何引用一样，它随时可能会被回收，在 JDK1.2 之后，用 PhantomReference 类来表示，通过查看这个类的源码，发现它只有一个构造函数和一个 get() 方法，而且它的 get() 方法仅仅是返回一个null，也就是说将永远无法通过虚引用来获取对象，虚引用必须要和 ReferenceQueue 引用队列一起使用。
+```
+
+#### 关于节点流和处理流
+
+```java
+按照流是否直接与特定的地方（如磁盘、内存、设备等）相连，分为节点流和处理流两类。
+
+节点流：可以从或向一个特定的地方（节点）读写数据。如FileReader.
+处理流：是对一个已存在的流的连接和封装，通过所封装的流的功能调用实现数据读写。如BufferedReader.处理流的构造方法总是要带一个其他的流对象做参数。一个流对象经过其他流的多次包装，称为流的链接。
+JAVA常用的节点流：
+
+文 件 FileInputStream FileOutputStrean FileReader FileWriter 文件进行处理的节点流。
+字符串 StringReader StringWriter 对字符串进行处理的节点流。
+数 组 ByteArrayInputStream ByteArrayOutputStreamCharArrayReader CharArrayWriter 对数组进行处理的节点流（对应的不再是文件，而是内存中的一个数组）。
+管 道 PipedInputStream PipedOutputStream PipedReaderPipedWriter对管道进行处理的节点流。
+常用处理流（关闭处理流使用关闭里面的节点流）
+
+缓冲流：BufferedInputStrean BufferedOutputStream BufferedReader BufferedWriter  增加缓冲功能，避免频繁读写硬盘。
+转换流：InputStreamReader OutputStreamReader 实现字节流和字符流之间的转换。
+数据流 DataInputStream DataOutputStream  等-提供将基础数据类型写入到文件中，或者读取出来.
+流的关闭顺序
+一般情况下是：先打开的后关闭，后打开的先关闭
+另一种情况：看依赖关系，如果流a依赖流b，应该先关闭流a，再关闭流b。例如，处理流a依赖节点流b，应该先关闭处理流a，再关闭节点流b
+可以只关闭处理流，不用关闭节点流。处理流关闭的时候，会调用其处理的节点流的关闭方法。
 ```
 
