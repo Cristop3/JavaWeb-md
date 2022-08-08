@@ -893,3 +893,95 @@ JAVA常用的节点流：
 可以只关闭处理流，不用关闭节点流。处理流关闭的时候，会调用其处理的节点流的关闭方法。
 ```
 
+## 2022.08.08
+
+#### 序列化影响
+
+```java
+Java在序列化时不会实例化static变量和transient修饰的变量，因为static代表类的成员，transient代表对象的临时数据，被声明这两种类型的数据成员不能被序列化
+```
+
+#### 关于JVM内存设置参数含义
+
+```java
+-Xmx10240m -Xms10240m -Xmn5120m -XXSurvivorRatio=3
+    
+    -Xmx：最大堆大小
+    -Xms：初始堆大小 // -Xms初始堆大小即最小内存值为10240m
+    -Xmn: 年轻代大小
+    -XXSurvivorRatio：年轻代中Eden区与Survivor区的大小比值
+    年轻代5120m， Eden：Survivor=3，Survivor区大小=1024m（Survivor区有两个，即将年轻代分为5份，每个Survivor区占一份），总大小为2048m。
+```
+
+#### 异常分类
+
+![异常分类.png](https://s2.loli.net/2022/08/08/9KwgVm7bzACXQZE.png)
+
+#### "=="&"equals"及 hashCode
+
+```java
+“==”：作用是判断两个对象的地址是否相等，即，判断两个对象是不是同一个对象，如果是基本数据类型，则比较的是值是否相等。
+"equal"：作用是判断两个对象是否相等，但一般有两种使用情况
+              1.类没有覆盖equals()方法,则相当于通过“==”比较
+              2.类覆盖equals()方法，一般，我们都通过equals()方法来比较两个对象的内容是否相等，相等则返回true,如String
+
+地址比较是通过计算对象的哈希值来比较的，hashcode属于Object的本地方法，对象相等（地址相等），hashcode相等，对象不相等，hashcode()可能相等，哈希冲突
+
+hashCode()的存在是为了查找的快捷性,用于在散列存储结构中确定对象的存储地址
+如果两个对象 equals相等,则 hashCode()也一定相等
+如果 equals方法被重写,则 hashCode()也应该被重写
+如果两个对象的 hashCode()相等, equals()方法不一定相等
+equals方法没有重写,比较的就是应用类型的变量所指向的对象的地址
+```
+
+#### 接口修饰符渐变及与抽象类区别
+
+```java
+1. jdk1.7 接口中只包含抽象方法，使用public abstract  修饰。
+    public interface Demo{
+        public abstract void method();
+    }
+
+2. jdk1.8 接口中新加了默认方法和静态方法：
+    默认方法：使用default修饰，在接口的实现类中，可以直接调用该方法，也可以重写该方法。
+    静态方法：使用static修饰，通过接口直接调用。
+    public interface Demo{
+        //默认方法
+        public default void method(){
+            System.out.println("default method...");
+        }
+
+        //静态方法
+        public static void print(){
+            System.out.println("static method...");
+        }
+    }
+
+3. jdk1.9 接口中新加了私有方法，使用private修饰，私有方法供接口内的默认方法调用
+    public interface Demo{
+        private void method() {
+            System.out.println("Hello World!");
+        }
+    } 
+
+4. 接口与抽象类区别
+    4.1 接口的方法默认为public abstract ,接口中的变量默认为public static final，在java8之前所有的方法不能有实现抽象类中可以有非抽象方法
+    
+	4.2 一个类可以实现多个接口，但只能继承一个抽象类
+    
+	4.3 一个类实现接口，要实现该接口的所有抽象方法。
+    
+	4.4 接口不能被实例化，但可以声明，但是必须引用一个实现该接口的对象。抽象类可以有构造方法，但是不能被直接通过new进行实例化。但可以通过子类继承，实例化子类的时候抽象类也会被实例化。这其实用到了多态，向上转型。父类引用指向子类对象。
+    
+	4.5 从设计层面来说，抽象类是对类的抽象，是一种模板设计，接口是行为的抽象，是一种行为的规范。
+```
+
+#### int Integer new Integer()之间的值比较
+
+```java
+（1）int与Integer、new Integer()进行==比较时，结果永远为true
+（2）Integer与new Integer()进行==比较时，结果永远为false
+（3）Integer与Integer进行==比较时，看范围；在大于等于-128小于等于127的范围内为true，在此范围外为false。
+```
+
+![intIntegerNewInteger.png](https://s2.loli.net/2022/08/08/SaJUZRmyODQLwzE.png)

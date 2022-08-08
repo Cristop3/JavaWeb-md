@@ -148,9 +148,12 @@ windows下一般为Java.exe和Javac.exe
     			"随便一个小数字面量默认为double类型，当想表示float类型时，需要在后面加 F/f来表示" 如：
     			float ft = 99.33F
     			float f = -412 // 此处是同级别且不是小数时自动转为-412.0f
+    			Float ff = -412 // 错误 包装类修饰必须加"F/f"
     
     	1.2.2 "double"(默认)
     			内存占用(字节数) - "8"
+    			Double d = 40.0 // √
+    			double d = 40 // 同上float f = -412
     
     1.3 字符
     	1.3.1 "char"
