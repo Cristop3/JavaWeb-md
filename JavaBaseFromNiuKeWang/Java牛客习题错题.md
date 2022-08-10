@@ -719,7 +719,7 @@ try的形式有三种：
 3. 如果try的return语句有异常，则其return语句失效。       
 ```
 
-#### 位运算符
+#### 位运算符"<<" 、">>"、 ">>>"
 
 ```java
 1. << 左移运算符
@@ -979,9 +979,253 @@ equals方法没有重写,比较的就是应用类型的变量所指向的对象�
 #### int Integer new Integer()之间的值比较
 
 ```java
-（1）int与Integer、new Integer()进行==比较时，结果永远为true
-（2）Integer与new Integer()进行==比较时，结果永远为false
-（3）Integer与Integer进行==比较时，看范围；在大于等于-128小于等于127的范围内为true，在此范围外为false。
+（1）int与Integer、new Integer()进行 "==" 比较时，结果永远为 "true"
+    	其中 int i1 = 123;
+			Integer i2 = 123;
+			Integer i3 = new Integer(123);
+		会将Integer类型进行"自动拆箱"（就是调用Integer的静态方法intValue()） 
+         Integer.intValue() 返回一个int类型数据，而int基本类型是无引用的，因此采用==均是值的比较
+
+（2）Integer与new Integer()进行 "==" 比较时，结果永远为 "false" 
+    	其中 Integer i1 = 123;
+			Integer i2 = new Integer(123);
+		要么i1是新new要么走缓存，而直接new Integer()是新对象
+            
+（3）Integer与Integer进行==比较时，看范围；在大于等于-128小于等于127的范围内为"true"，在此范围外为 "false"。
+        public static Integer valueOf(int i) {
+            if (i >= IntegerCache.low && i <= IntegerCache.high)
+                return IntegerCache.***[i + (-IntegerCache.low)]; // 返回缓存
+            return new Integer(i); // 否则new个Integer对象
+        }
+    	其中Integer i1 = 12;
+		    Integer  i2 = 12;
+				i1 == i2 // true
+			Integer i3 = 128;
+			Integer i4 = 128;
+				i3 == i4 // false
+		i1,i2会"自动装箱"（就是调用Integer的静态方法valueOf()）Integer.valueOf(int i) 返回一个Integer类型数据
+		
+（4）new Integer() 与 new Integer() 进行 "==" 比较， 结果永远为 "false"   
 ```
 
 ![intIntegerNewInteger.png](https://s2.loli.net/2022/08/08/SaJUZRmyODQLwzE.png)
+
+## 2022.08.09
+
+#### volatile与synchronized
+
+```java
+1. volatile
+	有序性、可见性
+    被volatile关键字修饰的实例变量或者类变量具备两层语义：
+    	1.1 保证了不同线程之间对共享变量的可见性
+    	1.2 禁止对volatile变量进行重排序
+    
+2. synchronized
+     原子性、有序性、可见性
+    synchronized保证顺序性是串行化的结果，但同步块里的语句是会发生指令从排。
+    
+3. volatile与synchronized区别
+    3.1 使用上区别
+    	volatile关键字只能用来"修饰实例变量"或者"类变量"，不能修饰方法已及方法参数和局部变量和常量
+        synchronized关键字不能用来修饰变量，只能用于"修饰方法"和"语句块"
+    	volatile修饰的变量可以为空，同步块的monitor不能为空
+    
+    3.2 原子性区别 -- "一个操作是不可中断的，要么全部执行成功要么全部执行失败"
+    	volatile无法保证原子性，也就"不能保证线程安全"
+    	synchronizde能够保证。因为无法被中途打断，即"可以保证线程安全"
+    
+    3.3 可见性区别 -- "当多个线程访问同一变量时，一个线程修改了这个变量的值，其他线程就能够立即看到修改的值"
+    	都可以实现共享资源的可见性，但是实现的机制不同，synchronized借助于JVM指令monitor enter 和monitor exit ，通过排他的机制使线程串行通过同步块，在monitor退出后所共享的内存会被刷新到主内存中。volatile使用机器指令(硬编码)的方式，“lock”迫使其他线程工作内存中的数据失效，不得不主内存继续加载
+    
+    3.4 有序性区别 -- "程序执行的顺序按照代码的先后顺序执行"
+    	volatile关键字禁止JVM编译器已及处理器对其进行重排序，能够保证有序性
+    	synchronized保证顺序性是串行化的结果，但同步块里的语句是会发生指令从排
+    
+    3.5 阻塞区别
+    	volatile不会使线程陷入阻塞
+    	synchronized会会使线程进入阻塞
+```
+
+#### Java自带三个类加载器ClassLoader
+
+```java
+- Bootstrap ClassLoader 最顶层的加载类，主要加载核心类库，%JRE_HOME%\lib下的rt.jar、resources.jar、charsets.jar和class等。另外需要注意的是可以通过启动jvm时指定-Xbootclasspath和路径来改变Bootstrap ClassLoader的加载目录。比如java -Xbootclasspath/a:path被指定的文件追加到默认的bootstrap路径中。我们可以打开我的电脑，在上面的目录下查看，看看这些jar包是不是存在于这个目录。 
+
+- Extention ClassLoader 扩展的类加载器，加载目录%JRE_HOME%\lib\ext目录下的jar包和class文件。还可以加载-D java.ext.dirs选项指定的目录。 
+
+- Appclass Loader也称为SystemAppClass 加载当前应用的classpath的所有类。
+
+- 加载顺序：
+    1. Bootstrap CLassloder 
+    2. Extention ClassLoader 
+    3. AppClassLoader
+```
+
+#### 关于while(condition)、if(confition)等
+
+```java
+在Java中，不同于c++与js，当condition>0，即默认为true
+    而Java中，while的condition必须是true&false boolean类型
+    int x = 2
+    while(x = 1){
+        
+    } // 错误
+
+	boolean y = false
+    while(y = true){
+        
+    } // 可
+
+	public static void main(String[] args) {
+	   int flag = 2;
+        if (flag = 1) // 错误 
+        {
+            System.out.println("true");
+        }
+        else
+        {
+            System.out.println("false");
+        }
+        
+        boolean flag = false
+        if(flag = true){ // 可
+            
+        }else{
+            
+        }
+	}
+	当flag=1，赋值1时，返回1，即返回类型赋值类型，当且有当flag=true，赋值为boolean类型时，编译可通过，且走"真"分支
+```
+
+#### 关于Java中部分可执行程序含义及部分包含义
+
+```java
+1. 可执行程序
+    javac.exe 是编译.java文件
+    
+    java.exe 是执行编译好的.class文件
+    
+    javadoc.exe 是生成Java说明文档
+    
+    jdb.exe 是Java调试器
+    
+    javaprof.exe 是剖析工具
+    
+2. 部分包
+    java.awt： 包含构成抽象窗口工具集的多个类，用来构建和管理应用程序的图形用户界面
+    java.lang： 提供java编成语言的程序设计的基础类
+
+    java.io：　 包含提供多种输出输入功能的类，
+    
+    java.net：　 包含执行与网络有关的类，如URL，SCOKET，SEVERSOCKET，
+    
+    java.applet： 包含java小应用程序的类
+    
+    java.util：　 包含一些实用性的类
+```
+
+#### 关于A基类B子类初始化执行顺序
+
+```java
+1. 第一步
+	初始化A基类中的"静态成员变量"和"静态代码块"，其中是先执行静态成员变量，再执行静态代码块(与编码前后顺序无关)，但同时可以存在多个静态代码块，此时，同为静态代码块有前后顺序关联
+    
+2. 第二步
+     初始化B子类的"静态成员变量"和"静态代码块"，同A基类一样
+    
+3. 第三步
+     其次，再初始化A基类的"普通成员变量"和"代码块"，
+     再执行"A基类的构造方法" // 注意此处 执行完A代码块后是执行构造方法
+    
+4. 第四步
+     最后，初始化B子类的"普通成员变量"和"代码块"，
+     再执行"B子类的构造方法"
+    
+其中需要注意的时，若在B子类构造方法中
+    5.1 若无显式的使用super()来指定调用父构造函数，则会默认的调用父类的无参构造方法
+    5.2 若显式的使用super()指定调用，则会指定调用父类无参或有参构造函数
+因此，看似父类构造方法（第三步）执行在子类构造方法（第四步）前面，但是实际逻辑上是看子类的构造方法有无显式的调用super()函数    
+    
+```
+
+#### Java中实现多态的方式
+
+```java
+Java通过方法重写和方法重载实现多态
+
+其中"方法重写"也叫做"运行时多态"，调用是根据运行时对象的实际类型来决定的，也就是“动态绑定”
+    1. 要有继承关系
+    2. 子类要重写父类的方法
+    3. 父类引用指向子类对象
+    
+而"方法重载"也叫做"编译时多态"，重载方法的调用是在编译时确定的，也就是“静态绑定”,如果实参是引用类型，编译器会根据引用的类型来决定调用哪个重载方法。    
+```
+
+#### Math.floor()、Math.ceil()、Math.round()用法
+
+```java
+ceil,floor,round,这些方法的作用于它们的英文名称的含义相对应，
+    1. ceil的英文意义是天花板，该方法就表示向上取整，Math.ceil（11.3）的结果为12，Math.ceil(-11.6)的结果为-11；
+    2. floor的英文是地板，该方法就表示向下取整，Math.floor(11.6)的结果是11，Math.floor(-11.4)的结果-12；
+    3. 最难掌握的是round方法，他表示“四舍五入”，算法为Math.floor(x+0.5),即将原来的数字加上0.5后再向下取整，所以，Math.round(11.5)的结果是12，Math.round(-11.5)的结果为-11.
+```
+
+## 2022.08.10
+
+#### Java中的有序无序含义
+
+```java
+java里面讲的有序无序，指的是你按照顺序存进去数据，然后再按照顺序取出来，两者是一样的。
+    比如List(0)我放的是“a”，那么我list.get(0)取出来也是“a”。并不代表我存了打乱顺序存1到10十个数，它会自己给按照升序或者降序给你排好序。
+    再比如Set()，它会按一定规则给你内部排好序，已经不再是你add()进去的顺序了
+```
+
+#### 静态域（静态属性，静态常量）、静态方法
+
+```java
+1. 静态属性
+    public static int x = 1;
+	1.1 属于类 // XXX.x访问
+     1.2 为全局变量
+     1.3 共享于每个对象(公有域)
+     1.4 非静态&静态方法 均可以访问 x++访问
+     1.5 可被修改   
+        
+2. 静态常量
+    public static final int X = 1;
+	2.1 属于类 // XXX.x访问
+    2.2 为全局常量    
+    2.3 共享于每个对象(公有域)
+    2.4  非静态&静态方法 均可以访问  
+    2.5 不可修改
+        
+3. 静态方法
+    public static void x(){}
+	3.1 属于类 // XXX.x()访问
+    3.2 为全局方法
+    3.3 只能访问静态域或静态方法
+    3.4 建议使用"类名.静态方法"来访问，但也可以"类对象.静态方法"但不建议容易混淆
+    3.5 在以下两种情况下建议声明为静态方法
+        3.5.1 一个方法不需要访问对象状态，其所需参数都是通过显式参数提供（例如：Math.pow)
+        3.5.2 一个方法只需要访问类的静态域（例如：Employee.getNextldh
+```
+
+#### JVM命令含义
+
+```java
+1、jps：查看本机java进程信息。
+
+2、jstack：打印线程的栈信息，制作线程dump文件。
+
+3、jmap：打印内存映射，制作堆dump文件
+
+4、jstat：性能监控工具
+
+5、jhat：内存分析工具
+
+6、jconsole：简易的可视化控制台
+
+7、jvisualvm：功能强大的控制台
+```
+

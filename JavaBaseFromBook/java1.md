@@ -154,6 +154,7 @@ windows下一般为Java.exe和Javac.exe
     			内存占用(字节数) - "8"
     			Double d = 40.0 // √
     			double d = 40 // 同上float f = -412
+    			Double d = 40 // 错误，因为使用Double包装类，无法将int类型直接转换为Double
     
     1.3 字符
     	1.3.1 "char"
@@ -229,9 +230,28 @@ windows下一般为Java.exe和Javac.exe
 
 ```java
 1. switch分支注意事项：
-    1.1 表达式类型只能是"byte"\"short"\"int"\"char",jdk5开始支持枚举，jdk7开始支持String，但不支持"double\float\long"
+    1.1 表达式类型只能是"byte"\"short"\"int"\"char"(但不支持"double\float\long")
+        jdk5开始支持枚举，
+        jdk7开始支持String
+    
     1.2 case给出的值不允许重复，且只能是字面量，不能是变量
+    	比如：switch(v){
+                case "year":
+                ....
+			}
     1.3 要写break;否则会出现穿透现象（但需要根据实际情况来决定）
+        比如：switch(v){
+                case 1
+                    x++;
+                case 2
+                    x++;
+                case 3:
+                    x++;
+                default:
+                    x++
+            }
+		   switch(2)
+            此时，当匹配到case 2，若无break，则会一直执行case 3 default中的x++
 ```
 
 ### 数组
