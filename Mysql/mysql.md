@@ -59,6 +59,9 @@ INSERT INTO table_name ( field1, field2,...fieldN )
 
 2. 插入多条一次性
 INSERT INTO table_name  (field1, field2,...fieldN)  VALUES  (valueA1,valueA2,...valueAN),(valueB1,valueB2,...valueBN),(valueC1,valueC2,...valueCN)......;
+
+3. 加``跟''
+指定插入哪些字段，字段名顺序与字段值顺序一致即可，可以给部分或所有字段名加``，不能加''，加''时会执行报错
 ```
 
 ### select查询数据
@@ -175,6 +178,8 @@ FROM tables
 数据量大时，对于表连接来说，union的效率要高一些，
 union: 多个结果集拼接（如加法）
 join: 笛卡尔积（如乘法）
+
+需要注意每个union的子集字段名、字段顺序需保持一致，不然就会按第一子集字段显示，造成错误理解
 ```
 
 ### order by排序
@@ -187,6 +192,9 @@ ORDER BY field1 [ASC [DESC][默认 ASC]], [field2...] [ASC [DESC][默认 ASC]]
 2. 你可以设定多个字段来排序。
 3. 你可以使用 ASC 或 DESC 关键字来设置查询结果是按升序或降序排列。 默认情况下，它是按升序排列。
 4. 你可以添加 WHERE...LIKE 子句来设置条件。
+5. 若存在多个order by字段 则按order by顺序先排序，相同的数据再按第二个order by排序，如：
+	select * from user order by age desc, id asc;
+	先按age年龄降序排列，若年龄相同的再按id编号升序排列。
 ```
 
 ## 2022.03.24
@@ -205,6 +213,11 @@ GROUP BY column_name;
 
 2. with rollup
 WITH ROLLUP 可以实现在分组统计数据基础上再进行相同的统计（SUM,AVG,COUNT…）。
+
+3. having
+having是在分组后过滤，where在分组前过滤，不冲突，可以同时使用;
+having是用来过滤的，group by是限定分组;
+select语句中没有聚合函数的使用时也可以用having。
 ```
 
 ### coalesce函数
@@ -223,6 +236,8 @@ LEFT JOIN（左连接）：获取左表所有记录，即使右表没有对应�
 RIGHT JOIN（右连接）： 与 LEFT JOIN 相反，用于获取右表所有记录，即使左表没有对应匹配的记录。
 ```
 
+![join理解.png](https://s2.loli.net/2022/10/12/7CmY5PQG2zMuBnT.png)
+
 ### null值处理
 
 ```mysql
@@ -231,19 +246,24 @@ IS NULL: 当列的值是 NULL,此运算符返回 true。
 IS NOT NULL: 当列的值不为 NULL, 运算符返回 true。
 
 IFNULL() : select * , columnName1+ifnull(columnName2,0) from tableName;
+
+连接时，null = null 不相同即无法匹配
 ```
 
 ### REGEXP正则匹配
 
 ```mysql
-^	匹配输入字符串的开始位置。如果设置了 RegExp 对象的 Multiline 属性，^ 也匹配 '\n' 或 '\r' 之后的位置。
+regexp关键字，专属正则匹配，注意与like区分
+select id from student where name regexp '[^李王]'
+
+^	匹配输入字符串的开始位置。如果设置了 RegExp 对象的 Multiline 属性，^ 也匹配 '\n' 或 '\r' 之后的位置。若放在括号里面，则表示匹配不在括号中的任何字符，如[^abc]匹配非abc字符。
 
 $	匹配输入字符串的结束位置。如果设置了RegExp 对象的 Multiline 属性，$ 也匹配 '\n' 或 '\r' 之前的位置。
 .	匹配除 "\n" 之外的任何单个字符。要匹配包括 '\n' 在内的任何字符，请使用像 '[.\n]' 的模式。
 
 [...]	字符集合。匹配所包含的任意一个字符。例如， '[abc]' 可以匹配 "plain" 中的 'a'。
 
-[^...]	负值字符集合。匹配未包含的任意字符。例如， '[^abc]' 可以匹配 "plain" 中的'p'。
+[^...] | [!...]	负值字符集合。匹配未包含的任意字符。例如， '[^abc]' 可以匹配 "plain" 中的'p'。
 
 p1|p2|p3	匹配 p1 或 p2 或 p3。例如，'z|food' 能匹配 "z" 或 "food"。'(z|f)ood' 则匹配 "zood" 或 "food"。
 
@@ -455,6 +475,8 @@ limit
 4. max 最大值
 5. min 最小值
 
+其中需要注意的是，聚合函数不能嵌套使用，如max(count(1))这种，可以使用子查询来拆分，再查询
+
 注意：
 	1. 分组函数在使用的时候必须先进行分组，然后才能使用；
 	2. 如果你没有对数据进行分组，整张表默认为一组。
@@ -633,7 +655,7 @@ blob
 
 ### insert
 
-```
+```mysql
 1. 
 insert into 表名(字段名1，字段名2，字段名3...) values(值1，值2，值3)
 字段名和值要一一对应
@@ -673,6 +695,8 @@ delete语句删除数据的原理
 	表中的数据被删除了，但是这个数据在硬盘上的真实存储空间不会被释放；
 	缺点：删除效率比较低；
 	优点：支持回滚
+	
+多表删除时，delete和from之间必须要写明想要删除记录的表名	
 	
 2.物理删除
 truncate table 表名
@@ -913,6 +937,7 @@ truncate 语句删除数据的原理
 2. 如何创建、删除视图
 	create view 视图名 as select * from xxx
 	// 注意：只有DQL语句才能以view的形式创建
+	create view 试图名 (字段1，字段2，字段3...) as select ... 其中的【字段】可以省略
 	
 	drop view 视图名
 
@@ -936,6 +961,37 @@ truncate 语句删除数据的原理
 		2.1 首先创建数据库：create database 数据库名
 		2.2 使用数据库：use 数据库名
 		2.3 初始化数据库：soure 脚本文件路径
+```
+
+### grant命令
+
+```mysql
+grant 权限 on 数据库对象 to 用户 # 通过命令”show privileges;”可以查看
+1. 对[testdb]库下给[common_user@]开头[拥护]赋予 查询、插入、更新、删除权限
+	grant select, insert, update, delete on testdb.* to common_user@’%’
+	grant select, insert, update, delete on testdb.orders to dba@localhost;
+	
+2. 创建表、索引、视图、存储过程、函数等
+	grant create on testdb.* to developer@’192.168.0.%’;
+    grant alter on testdb.* to developer@’192.168.0.%’;
+    grant drop on testdb.* to developer@’192.168.0.%’;
+    grant references on testdb.* to developer@’192.168.0.%’;
+    
+    grant create temporary tables on testdb.* to developer@’192.168.0.%’;
+    grant index on testdb.* to developer@’192.168.0.%’;
+    
+    grant show view on testdb.* to developer@’192.168.0.%’;
+    grant create view on testdb.* to developer@’192.168.0.%’;
+    
+3. 某个库或所有库权限
+	grant all privileges on testdb to dba@’localhost’
+	grant all on *.* to dba@’localhost’
+```
+
+### 建表后单独添加某个表外键
+
+```mysql
+alter table 表名 add constraint 外键名 foreign key (本表外键列名) references 主表名（主表主键列名）
 ```
 
 ## 2022.04.06

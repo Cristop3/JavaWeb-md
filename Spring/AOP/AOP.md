@@ -28,6 +28,16 @@ Spring AOP 使用纯 Java 实现，不需要专门的编译过程和类加载器
 AspectJ 扩展了 Java 语言，提供了一个专门的编译器，在编译时提供横向代码的植入。
 ```
 
+#### 如何理解AOP织入-20221009
+
+```java
+	织入是将增强添加对目标类具体连接点上的过程。AOP像一台织布机，将目标类、增强或引介通过AOP这台织布机天衣无缝地编织到一起。根据不同的实现技术
+    AOP有三种织入的方式： 
+        a、编译期织入，这要求使用特殊的Java编译器。 
+        b、类装载期织入，这要求使用特殊的类装载器。 
+        c、动态代理织入，在运行期为目标类添加增强生成子类的方式。 Spring采用动态代理织入，而AspectJ采用编译期织入和类装载期织入。
+```
+
 #### AOP术语
 
 ```java
@@ -159,11 +169,11 @@ Spring AOP 是一个简化版的 AOP 实现，并没有提供完整版的 AOP �
     com.springsource.org.aopalliance-1.0.0.jar
     
 确定概念（主要理解"切点（PointCut）"，"通知（Advice）","切面（Aspect或Advisor）"）
-1. 通知（Advice）
+1. 通知（Advice）- "理解为执行增强操作的类中的具体方法"
     我理解就是像是vue里面的路由守卫或者生命周期（只说用法相似 概念不一样哈 为了方便理解而已）的回调函数一样 理解成有6种回调方式
-2. 切点（PointCut）
+2. 切点（PointCut） - "理解为执行增强操作的类中的方法"
     主要就是在众多"连接点"中选择哪些点来作为"切入点"，可以理解为"天选之人"
-3. 切面（Aspect）
+3. 切面（Aspect）- "理解为执行增强操作的类"
     由"通知"和"切点"组成一个完整的"切面"，比如一个面可以服务于多个需要被增强的方法，只需要添加切点，修改通知来完善逻辑
     
 4. 切入表达式（execution）
@@ -280,6 +290,7 @@ AspectJ 框架为 AOP 开发提供了一套 @AspectJ 注解。它允许我们直
     // DogDaoImpl.java
     // 1. 创建需要"被增强"类
     // 2. 通过注解成为IOC bean
+    // 3. 其中的run方法称为"连接点"
     @Component("dogDao")
     public class DogDaoImpl implements DogDao {
         @Override
@@ -297,6 +308,7 @@ AspectJ 框架为 AOP 开发提供了一套 @AspectJ 注解。它允许我们直
     public class AspectAnno2DogDao {
         // 5. 定义切点
         // 要求：返回值类型为 void，名称自定义，没有参数
+        // 通过@Pointcut注解关联到指定的"连接点"
         @Pointcut("execution(* com.home.aop.dao.impl.DogDaoImpl.run(..))")
         public void dogPointCut() {
 

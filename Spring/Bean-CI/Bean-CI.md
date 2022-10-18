@@ -621,6 +621,8 @@ prop.maxActive=10
         （2）@Qualifier：根据名称进行注入这个@Qualifier 注解的使用，和上面@Autowired 一起使用
         （3）@Resource：可以根据类型注入，可以根据名称注入
         （4）@Value：注入普通类型属性
+        
+        @Autowired是Spring提供的注解，@Resource是JDK提供的注解。它们的区别是，@Autowired只能按类型注入，@Resource默认按名称注入，也支持按类型注入。
 ```
 
 ![Bean-注解定义.png](https://s2.loli.net/2022/05/19/joDT92glBnILMCR.png)
