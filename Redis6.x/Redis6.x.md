@@ -365,3 +365,491 @@ geodist <key> <member1> <member2>  [m|km|ft|mi ]  // 获取两个位置之间的
 georadius <key> <longitude> <latitude> radius  m|km|ft|mi   // 以给定的经纬度为中心，找出某一半径内的元素
 ```
 
+### Redis-Jedis
+
+```java
+1. maven 依赖包
+    <dependency>
+        <groupId>redis.clients</groupId>
+        <artifactId>jedis</artifactId>
+        <version>3.2.0</version>
+    </dependency>
+    
+ 2. 本地虚拟机测试时
+    禁用Linux的防火墙：Linux(CentOS7)里执行命令
+    systemctl stop/disable firewalld.service   
+    redis.conf中注释掉bind 127.0.0.1 ,然后 protected-mode no
+    
+ 3. 测试代码
+    import redis.clients.jedis.Jedis;
+    public class Test {
+        public static void main(String[] args) {
+            Jedis jedis = new Jedis("ip",6379);
+            String pong = jedis.ping();
+            System.out.println("连接成功："+pong);
+            jedis.close();
+        }
+    }
+
+ 4. API
+     // keys
+     Set<String> keys = jedis.keys("*");
+	// String set get
+	jedis.set("k1", "v1");
+	System.out.println(jedis.get("k1"));
+	// mset
+	jedis.mset("str1","v1","str2","v2","str3","v3");
+	// mget
+    System.out.println(jedis.mget("str1","str2","str3"));
+	// list
+	List<String> list = jedis.lrange("mylist",0,-1);
+    for (String element : list) {
+    	System.out.println(element);
+    }
+	// set
+	jedis.sadd("x", "x1");
+    jedis.sadd("x", "x2");
+    Set<String> smembers = jedis.smembers("x");
+    for (String x : smembers) {
+    	System.out.println(x);
+    }
+	// hash
+	jedis.hset("hash1","userName","lisi");
+    System.out.println(jedis.hget("hash1","userName"));
+    Map<String,String> map = new HashMap<String,String>();
+    map.put("telphone","13810169999");
+    map.put("address","atguigu");
+    map.put("email","abc@163.com");
+    jedis.hmset("hash2",map);
+    List<String> result = jedis.hmget("hash2", "telphone","email");
+    for (String element : result) {
+    	System.out.println(element);
+    }
+	// zset
+	jedis.zadd("zset01", 100d, "z3");
+    jedis.zadd("zset01", 90d, "l4");
+    jedis.zadd("zset01", 80d, "w5");
+    jedis.zadd("zset01", 70d, "z6");
+
+    Set<String> zrange = jedis.zrange("zset01", 0, -1);
+    for (String e : zrange) {
+    	System.out.println(e);
+    }
+```
+
+### Redis-SpringBoot
+
+```java
+1. maven依赖包
+	<!-- redis -->
+    <dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+
+    <!-- spring2.X集成redis所需common-pool2-->
+    <dependency>
+    <groupId>org.apache.commons</groupId>
+    <artifactId>commons-pool2</artifactId>
+    <version>2.6.0</version>
+    </dependency>
+    
+2. application.properties
+    #Redis服务器地址
+    spring.redis.host=xxx.xxx.xxx.xxx
+    #Redis服务器连接端口
+    spring.redis.port=6379
+    #Redis数据库索引（默认为0）
+    spring.redis.database= 0
+    #连接超时时间（毫秒）
+    spring.redis.timeout=1800000
+    #连接池最大连接数（使用负值表示没有限制）
+    spring.redis.lettuce.pool.max-active=20
+    #最大阻塞等待时间(负数表示没限制)
+    spring.redis.lettuce.pool.max-wait=-1
+    #连接池中的最大空闲连接
+    spring.redis.lettuce.pool.max-idle=5
+    #连接池中的最小空闲连接
+    spring.redis.lettuce.pool.min-idle=0
+    
+3. RedisConfig配置类
+    @EnableCaching
+    @Configuration
+    public class RedisConfig extends CachingConfigurerSupport {
+        @Bean
+        public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {
+            RedisTemplate<String, Object> template = new RedisTemplate<>();
+            RedisSerializer<String> redisSerializer = new StringRedisSerializer();
+            Jackson2JsonRedisSerializer jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer(Object.class);
+            ObjectMapper om = new ObjectMapper();
+            om.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
+            om.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL);
+            jackson2JsonRedisSerializer.setObjectMapper(om);
+            template.setConnectionFactory(factory);
+    //key序列化方式
+            template.setKeySerializer(redisSerializer);
+    //value序列化
+            template.setValueSerializer(jackson2JsonRedisSerializer);
+    //value hashmap序列化
+            template.setHashValueSerializer(jackson2JsonRedisSerializer);
+            return template;
+        }
+        @Bean
+        public CacheManager cacheManager(RedisConnectionFactory factory) {
+            RedisSerializer<String> redisSerializer = new StringRedisSerializer();
+            Jackson2JsonRedisSerializer jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer(Object.class);
+    //解决查询缓存转换异常的问题
+            ObjectMapper om = new ObjectMapper();
+            om.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
+            om.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL);
+            jackson2JsonRedisSerializer.setObjectMapper(om);
+    // 配置序列化（解决乱码的问题）,过期时间600秒
+            RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
+                    .entryTtl(Duration.ofSeconds(600))       .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer))                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jackson2JsonRedisSerializer))
+                    .disableCachingNullValues();
+            RedisCacheManager cacheManager = RedisCacheManager.builder(factory)
+                    .cacheDefaults(config)
+                    .build();
+            return cacheManager;
+        }
+    }
+
+4. 使用
+    @RestController
+    @RequestMapping("/redisTest")
+    public class RedisTestController {
+        @Autowired
+        private RedisTemplate redisTemplate;
+        @GetMapping
+        public String testRedis() {
+            //设置值到redis
+            redisTemplate.opsForValue().set("x1","x2");
+            //从redis获取值
+            String x1 = (String)redisTemplate.opsForValue().get("x1");
+            return x1;
+        }
+    } 
+```
+
+### Redis-事务
+
+```java
+1. 何为Redis事务
+    Redis事务是一个单独的隔离操作：事务中的所有命令都会序列化、按顺序地执行。事务在执行的过程中，不会被其他客户端发送来的命令请求所打断。Redis事务的主要作用就是串联多个命令防止别的命令插队。
+    
+2. 事务命令
+    multi // 组队
+    discard // 取消组队
+    exec // 执行组队命令
+    
+    > multi // 开启事务
+    > set k v // 命令1
+    > set k2 v2 // 命令2
+    > exec // 按顺序执行命令1、命令2
+    > discard // 撤销组队阶段 如上撤销命令1、命令2
+    
+3. 错误机制
+    3.1 组队中某个命令出现了报告错误，执行时整个的所有队列都会被取消
+    3.2 如果执行阶段某个命令报出了错误，则只有报错的命令不会被执行，而其他的命令都会执行，不会回滚
+    
+4. 悲观锁
+    悲观锁(Pessimistic Lock), 顾名思义，就是很悲观，每次去拿数据的时候都认为别人会修改，所以每次在拿数据的时候都会上锁，这样别人想拿这个数据就会block直到它拿到锁。传统的关系型数据库里边就用到了很多这种锁机制，比如行锁，表锁等，读锁，写锁等，都是在做操作之前先上锁。
+    
+5. 乐观锁
+    乐观锁(Optimistic Lock), 顾名思义，就是很乐观，每次去拿数据的时候都认为别人不会修改，所以不会上锁，但是在更新的时候会判断一下在此期间别人有没有去更新这个数据，可以使用版本号等机制。乐观锁适用于多读的应用类型，这样可以提高吞吐量。Redis就是利用这种check-and-set机制实现事务的。
+    
+    watch key [key ...]
+    在执行multi之前，先执行watch key1 [key2],可以监视一个(或多个) key ，如果在事务执行之前这个(或这些) key 被其他命令所改动，那么事务将被打断
+    unwatch 
+    取消 WATCH 命令对所有 key 的监视
+    如果在执行 WATCH 命令之后，EXEC 命令或DISCARD 命令先被执行了的话，那么就不需要再执行UNWATCH 了
+    
+6. 事务三特性
+    6.1 单独的隔离操作 
+	  事务中的所有命令都会序列化、按顺序地执行。事务在执行的过程中，不会被其他客户端发送来的命令请求所打断。 
+	6.2 没有隔离级别的概念 
+	   队列中的命令没有提交之前都不会实际被执行，因为事务提交前任何指令都不会被实际执行
+	6.3 不保证原子性 
+    	事务中如果有一条命令执行失败，其后的命令仍然会被执行，没有回滚
+```
+
+### Redis-持久化-RDB（Redis DataBase）
+
+```java
+在指定的时间间隔内将内存中的数据集快照写入磁盘， 也就是行话讲的Snapshot快照，它恢复时是将快照文件直接读到内存里
+    
+Redis会单独创建（fork）一个子进程来进行持久化，会先将数据写入到 一个临时文件中，待持久化过程都结束了，再用这个临时文件替换上次持久化好的文件。 整个过程中，主进程是不进行任何IO操作的，这就确保了极高的性能 如果需要进行大规模数据的恢复，且对于数据恢复的完整性不是非常敏感，那RDB方式要比AOF方式更加的高效。RDB的缺点是最后一次持久化后的数据可能丢失。
+    
+1. fork
+    Fork的作用是复制一个与当前进程一样的进程。新进程的所有数据（变量、环境变量、程序计数器等） 数值都和原进程一致，但是是一个全新的进程，并作为原进程的子进程
+	在Linux程序中，fork()会产生一个和父进程完全相同的子进程，但子进程在此后多会exec系统调用，出于效率考虑，Linux中引入了“写时复制技术”
+	一般情况父进程和子进程会共用同一段物理内存，只有进程空间的各段的内容要发生变化时，才会将父进程的内容复制一份给子进程。
+    
+2. dump.rdb
+    在redis.conf中配置文件名称，默认为dump.rdb
+    rdb文件的保存路径，也可以修改。默认为Redis启动时命令行所在的目录下 dir "/xxx"
+    
+3. 保持策略
+    配置文件中去配置save或bgsave
+    3.1 save
+    	save 秒钟 写操作次数；save时只管保存，其它不管，全部阻塞。手动保存。不建议。
+    	默认是1分钟内改了1万次，或5分钟内改了10次，或15分钟内改了1次（这里得次指的是操作了key）
+    
+    3.2 bgsave：Redis会在后台异步进行快照操作， 快照同时还可以响应客户端请求。
+可以通过lastsave 命令获取最后一次成功执行快照的时间
+    
+    stop-writes-on-bgsave-error yes // 当Redis无法写入磁盘的话，直接关掉Redis的写操作
+    rdbcompression yes // 对于存储到磁盘中的快照，可以设置是否进行压缩存储。如果是的话，redis会采用LZF算法进行压缩
+    rdbchecksum yes // 在存储快照后，还可以让redis使用CRC64算法来进行数据校验
+    
+4. rdb备份
+    1. 拷贝复制一份rdb文件
+    2. 恢复时：关闭Redis；先把备份的文件拷贝到工作目录下并更名为dump.rdb；启动Redis, 备份数据会直接加载
+    
+5. 优缺点
+    适合大规模的数据恢复；
+    对数据完整性和一致性要求不高更适合使用；
+    节省磁盘空间；
+    恢复速度快。
+    
+    Fork的时候，内存中的数据被克隆了一份，大致2倍的膨胀性需要考虑；
+    虽然Redis在fork时使用了写时拷贝技术,但是如果数据庞大时还是比较消耗性能；
+    在备份周期在一定间隔时间做一次备份，所以如果Redis意外down掉的话，就会丢失最后一次快照后的所有修改。
+```
+
+### Redis-持久化-AOF（Redis DataBase）
+
+```java
+以日志的形式来记录每个写操作（增量保存），将Redis执行过的所有写指令记录下来(读操作不记录)， 只许追加文件但不可以改写文件，redis启动之初会读取该文件重新构建数据，换言之，redis 重启的话就根据日志文件的内容将写指令从前到后执行一次以完成数据的恢复工作
+    
+1. 流程
+（1）客户端的请求写命令会被append追加到AOF缓冲区内；
+（2）AOF缓冲区根据AOF持久化策略[always,everysec,no]将操作sync同步到磁盘的AOF文件中；
+（3）AOF文件大小超过重写策略或手动重写时，会对AOF文件rewrite重写，压缩AOF文件容量；
+（4）Redis服务重启时，会重新load加载AOF文件中的写操作达到数据恢复的目的；
+    
+2. 文件名称及路径设置
+    可以在redis.conf中配置文件名称，默认为 appendonly.aof
+	AOF文件的保存路径，同RDB的路径一致。
+    
+    AOF和RDB同时开启，系统默认取AOF的数据（数据不会存在丢失）
+    
+3. 开启、修复及恢复
+    3.1 appendonly yes // 设置配置文件 开启
+    3.2 如遇到AOF文件损坏，通过/usr/local/bin/redis-check-aof--fix appendonly.aof进行恢复 // 修复
+    3.3 同rdb，备份-重名-重启 // 恢复
+    
+4. 同步频率
+    appendfsync always
+    始终同步，每次Redis的写入都会立刻记入日志；性能较差但数据完整性比较好
+    
+    appendfsync everysec
+    每秒同步，每秒记入日志一次，如果宕机，本秒的数据可能丢失。
+    
+    appendfsync no
+    redis不主动进行同步，把同步时机交给操作系统。
+    
+5. 优缺点
+    备份机制更稳健，丢失数据概率更低。
+    可读的日志文本，通过操作AOF稳健，可以处理误操作。
+    
+     比起RDB占用更多的磁盘空间。
+	恢复备份速度要慢。
+	每次读写都同步的话，有一定的性能压力。
+	存在个别Bug，造成恢复不能。
+    
+6. rdb、aof选用哪个
+    官方推荐两个都启用。如果对数据不敏感，可以选单独用RDB。不建议单独用 AOF，因为可能会出现Bug。如果只是做纯内存缓存，可以都不用。
+```
+
+### Redis-分布式锁
+
+```java
+分布式锁主流的实现方案：
+1. 基于数据库实现分布式锁
+2. 基于缓存（Redis等）
+3. 基于Zookeeper
+    
+每一种分布式锁解决方案都有各自的优缺点：
+1. 性能：redis最高
+2. 可靠性：zookeeper最高
+    
+分布式过程
+    1. 多个客户端同时获取锁
+    2. 获取成功，执行业务逻辑{从db获取数据，放入缓存}，执行完成释放锁（del）
+    3. 其他客户端等待重试
+    
+分布式锁方案一（给key上锁释放锁）
+    // 命令行
+	在redis命令中，以String类型为例，我们可以使用setnx来加锁；  
+    使用del key来释放锁
+    
+    // Java代码
+    在Java代码中，我们使用setIfAbsent(key,value)方法来加锁
+    使用delete(key)来释放锁
+    
+    @GetMapping("testLock")
+    public void testLock(){
+        //1获取锁，setne
+        Boolean lock = redisTemplate.opsForValue().setIfAbsent("lock", "111");
+        //2获取锁成功、查询num的值
+        if(lock){
+            Object value = redisTemplate.opsForValue().get("num");
+            //2.1判断num为空return
+            if(StringUtils.isEmpty(value)){
+                return;
+            }
+            //2.2有值就转成成int
+            int num = Integer.parseInt(value+"");
+            //2.3把redis的num加1
+            redisTemplate.opsForValue().set("num", ++num);
+            //2.4释放锁，del
+            redisTemplate.delete("lock");
+        }else{
+            //3获取锁失败、每隔0.1秒再获取
+            try {
+                Thread.sleep(100);
+                testLock();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+方案一的问题：
+    setnx|setIfAbsent 刚好获取到锁，业务逻辑出现异常，导致锁无法释放
+方案一解决：
+    设置过期时间，自动释放锁
+    
+分布式锁方案二（加过期时间，主动释放锁）
+    由于redis命令不保证原子性，因此将加过期时间命令和设置key命令最好合并成一条命令
+    // 命令行
+	setnx key value 3000
+    
+    // Java代码
+    setIfAbsent(key,value,3,TimeUnit.Seconds)
+    
+    @GetMapping("testLock")
+    public void testLock(){
+        //1获取锁，setne
+        Boolean lock = redisTemplate.opsForValue().setIfAbsent("lock", "111",3,TimeUnit.Seconds);
+        //2获取锁成功、查询num的值
+        if(lock){
+            Object value = redisTemplate.opsForValue().get("num");
+            //2.1判断num为空return
+            if(StringUtils.isEmpty(value)){
+                return;
+            }
+            //2.2有值就转成成int
+            int num = Integer.parseInt(value+"");
+            //2.3把redis的num加1
+            redisTemplate.opsForValue().set("num", ++num);
+            //2.4释放锁，del
+            redisTemplate.delete("lock");
+        }else{
+            //3获取锁失败、每隔0.1秒再获取
+            try {
+                Thread.sleep(100);
+                testLock();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+方案二的问题：
+    可能会释放其他服务器的锁
+方案二解决：
+    获取锁时，设置一个指定的唯一值（例如：uuid）；释放前获取这个值，判断是否自己的锁
+    
+分布式锁方案三（加uuid，判断自己锁才释放锁）
+    @GetMapping("testLock")
+    public void testLock(){
+    	// uuid设置锁value
+    	String uuid = UUID.randomUUID().toString();
+    	
+        //1获取锁，setne
+        Boolean lock = redisTemplate.opsForValue().setIfAbsent("lock", uuid,3,TimeUnit.Seconds);
+        //2获取锁成功、查询num的值
+        if(lock){
+            Object value = redisTemplate.opsForValue().get("num");
+            //2.1判断num为空return
+            if(StringUtils.isEmpty(value)){
+                return;
+            }
+            //2.2有值就转成成int
+            int num = Integer.parseInt(value+"");
+            //2.3把redis的num加1
+            redisTemplate.opsForValue().set("num", ++num);
+            
+            // 自己锁自己释放
+            if(uuid.equals((String)redisTemplate.opsForValue().get("lock"))){
+                //2.4释放锁，del
+            	redisTemplate.delete("lock");
+            }
+        }else{
+            //3获取锁失败、每隔0.1秒再获取
+            try {
+                Thread.sleep(100);
+                testLock();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+方案三的问题：
+    删除操作缺乏原子性，误删了其他锁
+方案三解决：
+    Lua脚本
+    
+分布式锁方案四（Lua脚本）
+    @GetMapping("testLockLua")
+    public void testLockLua() {
+        //1 声明一个uuid ,将做为一个value 放入我们的key所对应的值中
+        String uuid = UUID.randomUUID().toString();
+        //2 定义一个锁：lua 脚本可以使用同一把锁，来实现删除！
+        String skuId = "25"; // 访问skuId 为25号的商品 100008348542
+        String locKey = "lock:" + skuId; // 锁住的是每个商品的数据
+
+        // 3 获取锁
+        Boolean lock = redisTemplate.opsForValue().setIfAbsent(locKey, uuid, 3, TimeUnit.SECONDS);
+
+        // 如果true
+        if (lock) {
+            // 执行的业务逻辑开始
+            // 获取缓存中的num 数据
+            Object value = redisTemplate.opsForValue().get("num");
+            // 如果是空直接返回
+            if (StringUtils.isEmpty(value)) {
+                return;
+            }
+            // 不是空 如果说在这出现了异常！ 那么delete 就删除失败！ 也就是说锁永远存在！
+            int num = Integer.parseInt(value + "");
+            // 使num 每次+1 放入缓存
+            redisTemplate.opsForValue().set("num", String.valueOf(++num));
+            /*使用lua脚本来锁*/
+            // 定义lua 脚本
+            String script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+            // 使用redis执行lua执行
+            DefaultRedisScript<Long> redisScript = new DefaultRedisScript<>();
+            redisScript.setScriptText(script);
+            // 设置一下返回值类型 为Long
+            // 因为删除判断的时候，返回的0,给其封装为数据类型。如果不封装那么默认返回String 类型，
+            // 那么返回字符串与0 会有发生错误。
+            redisScript.setResultType(Long.class);
+            // 第一个要是script 脚本 ，第二个需要判断的key，第三个就是key所对应的值。
+            redisTemplate.execute(redisScript, Arrays.asList(locKey), uuid);
+        } else {
+            // 其他线程等待
+            try {
+                // 睡眠
+                Thread.sleep(1000);
+                // 睡醒了之后，调用方法。
+                testLockLua();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+```
+
