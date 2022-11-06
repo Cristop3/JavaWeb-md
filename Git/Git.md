@@ -70,6 +70,8 @@ git reflog
 
 7位版本号 commit 内容
 ...
+// 说明一点 显示的(HEAD -> main) HEAD@{0}:commit: 最新的一次提交说明
+// 当前版本指向HEAD{0}
 
 git log
 详细查看提交历史
@@ -79,6 +81,54 @@ commit 完整版本号
 Author: 配置的用户签名 name & email
 Date: 提交时间
 提交内容说明
+```
+
+#### git reset --hard 版本号
+
+```js
+该命令用于作版本穿梭，假如我们commit了三次，即git reflog下大致显示
+2342344 (HEAD -> master) HEAD@{0}: commit: 第三次提交 // 最新版本位置
+e34d332 HEAD@{1}: commit: 第二次提交
+fg34232 HEAD@{2}: commit: 第一次提交
+
+回到第二次提交时
+git reset --hard e34d332
+2342344 HEAD@{0}: commit: 第三次提交 
+e34d332 (HEAD -> master) HEAD@{1}: commit: 第二次提交 // 最新版本位置
+fg34232 HEAD@{2}: commit: 第一次提交
+
+回到第一次提交时
+git reset --hard fg34232
+2342344 HEAD@{0}: commit: 第三次提交 
+e34d332 HEAD@{1}: commit: 第二次提交 
+fg34232 (HEAD -> master)HEAD@{2}: commit: 第一次提交 // 最新版本位置
+
+底层就是移动了（HEAD -> 当前分支）这一整体指针指向的提交版本
+```
+
+#### 分支
+
+```js
+// 查看当前分支
+git branch -v 
+git branch
+
+// 创建分支
+git branch feature-xxx
+
+// 切换分支
+git checkout feature-xxx
+
+// 合并分支
+git merge 要合并到当前分支的分支名
+
+// 分支冲突
+合并分支时，两个分支在【同一个文件的同一个位置】有两套完全不同的修改，Git无法判断究竟使用哪一个因此需要人为手动决定
+<<<<< HEAD
+	// 这整体是当前分支内容
+==========
+    // 这整体是合并分支内容
+>>>>> feature-xxx
 ```
 
 
