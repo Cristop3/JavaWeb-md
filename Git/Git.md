@@ -1,4 +1,4 @@
-## 20221106
+20221106
 
 #### 设置用户签名
 
@@ -28,6 +28,10 @@ git init
 ```
 
 #### git status
+
+![gitStatus.png](https://s2.loli.net/2022/11/12/bXSsBuH4taZYMz7.png)
+
+![gitStatus2.png](https://s2.loli.net/2022/11/12/3i7HJfzGwU1KhqT.png)
 
 ```js
 git status
@@ -62,6 +66,10 @@ git commit -m "本次提交说明"
 ```
 
 #### git reflog  |  git log
+
+![gitReflog.png](https://s2.loli.net/2022/11/12/w2HshWZORNPe6ca.png)
+
+![gitLog.png](https://s2.loli.net/2022/11/12/mPASLdtg2kipTrw.png)
 
 ```js
 git reflog	
@@ -132,5 +140,3 @@ git merge 要合并到当前分支的分支名
 ```
 
 
-
-#### 
