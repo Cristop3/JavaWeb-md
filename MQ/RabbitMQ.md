@@ -59,7 +59,9 @@ Connection 的开销将是巨大的，效率也较低。Channel 是在 connectio
 	exchange 和 queue 之间的虚拟连接，binding 中可以包含 routing key，Binding 信息被保存到 exchange 中的查询表中，用于 message 的分发依据
 ```
 
-#### RabbitMQ-1个发布者2个消费者多条消息由消费者依次轮询接受处理
+#### RabbitMQ-1个生产者一个消费者
+
+![2.png](https://s2.loli.net/2022/11/16/1ISPXJK5AhEtWVw.png)
 
 ```java
 // RabbitUtils.java
@@ -126,6 +128,96 @@ public class Consumer {
     }
 }
 ```
+
+#### RabbitMQ-Work Queues（工作队列）
+
+##### 轮询分发-1个发布者2个消费者多条消息由消费者依次轮询接受处理
+
+![image-20221116215436047](C:\Users\admin\AppData\Roaming\Typora\typora-user-images\image-20221116215436047.png)
+
+```java
+假设有2个消费者A\B，其接收消息的顺序A\B或者B\A，一直这样轮询接收ABABAB... | BABABA....
+// Producer.java
+public class Producer {
+    private static final String QUEUE_NAME = "rabbitTwo";
+    public static void main(String[] args) throws IOException, TimeoutException {
+        Channel channel = RabbitUtils.getChannel();
+        channel.queueDeclare(QUEUE_NAME, false, false, false, null);
+        System.out.println("消息Producer已启动....");
+        Scanner scanner = new Scanner(System.in);
+        while (scanner.hasNext()) {
+            String message = scanner.next();
+            channel.basicPublish("", QUEUE_NAME, null, message.getBytes());
+            System.out.println("消息已发送");
+        }
+    }
+}
+
+// ConsumerOne.java
+public class ConsumerOne {
+    public static final String QUEUE_NAME = "rabbitTwo";
+    public static void main(String[] args) throws IOException, TimeoutException {
+        Channel channel = RabbitUtils.getChannel();
+        System.out.println("消息ConsumerOne - 已启动....");
+        channel.basicConsume(QUEUE_NAME, true, (consumerTag, delivery) -> {
+            String message = new String(delivery.getBody());
+            System.out.println("ConsumerOne - 接收的消息" + message);
+        }, (consumerTag) -> {
+            System.out.println(consumerTag + "消费者取消消费接口回调逻辑");
+        });
+    }
+}
+
+// ConsumerTwo.java
+public class ConsumerTwo {
+    public static final String QUEUE_NAME = "rabbitTwo";
+    public static void main(String[] args) throws IOException, TimeoutException {
+        Channel channel = RabbitUtils.getChannel();
+        System.out.println("消息ConsumerTwo - 已启动....");
+        channel.basicConsume(QUEUE_NAME, true, (consumerTag, delivery) -> {
+            String message = new String(delivery.getBody());
+            System.out.println("ConsumerTwo - 接收的消息" + message);
+        }, (consumerTag) -> {
+            System.out.println(consumerTag + "消费者取消消费接口回调逻辑");
+        });
+    }
+}
+
+// console
+// Producer
+消息Producer已启动....
+A
+消息已发送
+V
+消息已发送
+B
+消息已发送
+C
+消息已发送
+F
+消息已发送
+W
+消息已发送
+// ConsumerOne 
+消息ConsumerOne - 已启动....
+ConsumerOne - 接收的消息A
+ConsumerOne - 接收的消息B
+ConsumerOne - 接收的消息F
+// ConsumerTwo
+消息ConsumerTwo - 已启动....
+ConsumerTwo - 接收的消息V
+ConsumerTwo - 接收的消息C
+ConsumerTwo - 接收的消息W
+
+```
+
+##### 消息应答
+
+```java
+默认情况下，MQ一旦将消息发送给消费者后，便立即将该消息标记为删除，若此时消费者出问题了，没有接收到该消息，造成消息的丢失。因此MQ引入了消息应答机制：消费者在接收到消息并且处理该消息之后，告诉 rabbitmq 它已经处理了，rabbitmq 可以把该消息删除了。
+```
+
+
 
 #### RabbitMQ-发布确认
 
