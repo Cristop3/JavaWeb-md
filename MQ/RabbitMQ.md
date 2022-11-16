@@ -59,7 +59,7 @@ Connection 的开销将是巨大的，效率也较低。Channel 是在 connectio
 	exchange 和 queue 之间的虚拟连接，binding 中可以包含 routing key，Binding 信息被保存到 exchange 中的查询表中，用于 message 的分发依据
 ```
 
-#### RabbitMQ-1对1
+#### RabbitMQ-1个发布者2个消费者多条消息由消费者依次轮询接受处理
 
 ```java
 // RabbitUtils.java
@@ -125,8 +125,72 @@ public class Consumer {
         });
     }
 }
+```
 
+#### RabbitMQ-发布确认
 
+```java
+
+```
+
+#### RabbitMQ-交换机（Exchanges）
+
+```java
+1. 模式
+	在上面的例子中，我们都是一条消息对应一个消费者，而不能一条消息对应多个消费者 因此当我们需要将消息分发给不同的消费者时，需要采用“发布/订阅”模式
+
+2. 消息核心    
+	在RabbitMQ中，【生产者生产的消息不会直接发送到队列上面】，而是【发送到交换机中，由交换机来决定该消息需要发送到哪些队列或者丢弃它们】
+    
+3. 交换机类型    
+     直接(路由)模式【direct】
+     主题模式【topic】
+     扇出模式【fanout】
+     标题模式【headers】
+
+4. 默认交换机
+    在之前发布者发送消息时，在调用【channel.basicPublish("", QUEUE_NAME, null, message.getBytes());】我们的第一个参数是空字符串，此时表明【无指定名称交换机，采用默认交换机】且绑定到【QUEUE_NAME】队列上
+    
+5. 临时队列
+    在消费者断开与队列的连接时，队列就自动删除。在之前我们并没有设置持久化队列，在调用【channel.queueDeclare(QUEUE_NAME, false, false, false, null);】第二个参数设置为false，此时则表明该队列是个临时队列且名称叫【QUEUE_NAME】，还有一种生成临时队列的方式直接由RabbitMQ来创建队列名称，如：【String queueName = channel.queueDeclare().getQueue()】
+    
+6. 绑定BindingKey【routingKey】 
+    绑定是指我们需要将【哪个交换机】跟【哪个队列】进行绑定，则生产者发送消息后会根据【交换机->队列】关系发送到对应的队列中
+```
+
+##### RabbitMQ-交换机（Fanout）模式
+
+```java
+
+```
+
+##### RabbitMQ-交换机（Direct路由）模式
+
+```java
+
+```
+
+##### RabbitMQ-交换机（Topic）模式
+
+```java
+
+```
+
+#### RabbitMQ-死信队列
+
+```java
+1. 概念
+    producer 将消息投递到 broker 或者直接到queue 里了，consumer 从 queue 取出消息进行消费，但某些时候由于特定的原因导致 queue 中的某些消息无法被消费，这样的消息如果没有后续的处理，就变成了死信，有死信自然就有了死信队列。
+    
+2. 来源
+    消息 TTL 过期
+	队列达到最大长度(队列满了，无法再添加数据到 mq 中)
+	消息被拒绝(basic.reject 或 basic.nack)并且 requeue=false （不放回队列）
+```
+
+#### RabbitMQ-延迟队列
+
+```java
 
 ```
 
