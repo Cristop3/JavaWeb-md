@@ -504,7 +504,251 @@ for (int i = 0; i <10 ; i++) {
 
 #### RabbitMQ-延迟队列
 
-```java
+![8.png](https://s2.loli.net/2022/11/19/hNvVfgKbSukXw8d.png)
 
+```java
+1. 概念
+    队列内部是有序的，最重要的特性就体现在它的延时属性上，延时队列中的元素是希望在指定时间到了以后或之前取出和处理，延时队列就是用来存放需要在指定时间被处理的元素的队列
+    
+2. 使用场景
+    1.订单在十分钟之内未支付则自动取消
+    2.新创建的店铺，如果在十天内都没有上传过商品，则自动发送消息提醒。
+    3.用户注册成功后，如果三天内没有登陆则进行短信提醒。
+    4.用户发起退款，如果三天内没有得到处理则通知相关运营人员。
+    5.预定会议后，需要在预定的时间点前十分钟通知各个与会人员参加会议
+
+3. TTL
+    TTL在MQ中指的是一个【消息】或者【队列】的属性，表明【一条消息】或者【该队列中所有消息】的最大存货时间
+    3.1 队列设置TTL
+    	map.put("x-message-ttl", 20000)
+    	缺点：这样每增加一个延时需求就会增加一个队列
+    
+    3.2 消息设置TTL
+    	同样配合死信队列做；
+    	correlationData.getMessageProperties().setExpiration(10000)
+    	缺点：消息可能并不会按时“死亡“，因为 RabbitMQ 只会检查第一个消息是否过期，如果过期则丢到死信队列，如果第一个消息的延时时长很长，而第二个消息的延时时长很短，第二个消息并不会优先得到执行。
+    
+4. rabbitmq_delayed_message_exchange 
+    通过插件实现延迟队列
+```
+
+##### SpringBoot整合RabbitMQ - TTL实现延迟队列
+
+```java
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-amqp</artifactId>
+</dependency>
+    
+// 交换机、队列、bindingKey配置
+@Configuration
+public class RabbitMqConfig {
+    public static final String EXCHANGE_A = "A";
+    public static final String EXCHANGE_B = "B";
+    public static final String QUEUE_a = "a";
+    public static final String QUEUE_b = "b";
+    public static final String QUEUE_c = "c";
+    public static final String BINDING_Aa = "Aa";
+    public static final String BINDING_Ab = "Ab";
+    public static final String BINDING_Bc = "Bc";
+    @Bean
+    public DirectExchange AExchange() {
+        return new DirectExchange(EXCHANGE_A);
+    }
+    @Bean
+    public DirectExchange BExchange() {
+        return new DirectExchange(EXCHANGE_B);
+    }
+    @Bean
+    public Queue queue_a() {
+        Map<String, Object> map = new HashMap<>();
+        // 在队列中绑定死信交换机、路由key及设置自身的TTL队列过期时间
+        // 这里只需声明死信交换机和死信交换机的路由key
+        map.put("x-dead-letter-exchange", EXCHANGE_B);
+        map.put("x-dead-letter-routing-key", BINDING_Bc);
+        map.put("x-message-ttl", 10000);
+        return QueueBuilder.durable(QUEUE_a).withArguments(map).build();
+    }
+    @Bean
+    public Binding queue_aBindingA(Queue queue_a, DirectExchange AExchange) {
+        return BindingBuilder.bind(queue_a).to(AExchange).with(BINDING_Aa);
+    }
+    @Bean
+    public Queue queue_b() {
+        Map<String, Object> map = new HashMap<>();
+        // 在队列中绑定死信交换机、路由key及设置自身的TTL队列过期时间
+        // 这里只需声明死信交换机和死信交换机的路由key
+        map.put("x-dead-letter-exchange", EXCHANGE_B);
+        map.put("x-dead-letter-routing-key", BINDING_Bc);
+        map.put("x-message-ttl", 20000);
+        return QueueBuilder.durable(QUEUE_b).withArguments(map).build();
+    }
+    @Bean
+    public Binding queue_bBindingA(Queue queue_b, DirectExchange AExchange) {
+        return BindingBuilder.bind(queue_b).to(AExchange).with(BINDING_Ab);
+    }
+    @Bean
+    public Queue queue_c() {
+        return QueueBuilder.durable(QUEUE_c).build();
+    }
+    @Bean
+    public Binding queue_cBindingB(Queue queue_c, DirectExchange BExchange) {
+        return BindingBuilder.bind(queue_c).to(BExchange).with(BINDING_Bc);
+    }
+}
+// Producer
+@Slf4j
+@RestController
+@RequestMapping("home")
+public class Producer {
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+    @GetMapping("/send")
+    public void producer2Msg(String msg) {
+        log.info("当前时间：{},发送一条信息给两个 TTL 队列:{}", new Date(), msg);
+        rabbitTemplate.convertAndSend(RabbitMqConfig.EXCHANGE_A, RabbitMqConfig.BINDING_Aa, msg.getBytes(StandardCharsets.UTF_8));
+        rabbitTemplate.convertAndSend(RabbitMqConfig.EXCHANGE_A, RabbitMqConfig.BINDING_Ab, msg.getBytes(StandardCharsets.UTF_8));
+    }
+}
+// Consumer
+@Slf4j
+@Component
+public class Consumer {
+    @RabbitListener(queues= RabbitMqConfig.QUEUE_c)
+    public void consumerMsg(Message msg)  throws IOException {
+        String msgs = new String(msg.getBody());
+        log.info("当前时间：{},收到队列c信息{}", new Date(), msgs);
+    }s
+}
+// console
+当前时间：Sat Nov 19 09:50:08 CST 2022,发送一条信息给两个 TTL 队列:123	
+    当前时间：Sat Nov 19 09:50:18 CST 2022,收到队列c信息123
+    当前时间：Sat Nov 19 09:50:28 CST 2022,收到队列c信息123s
+```
+
+#### RabbitMQ-发布确认-无法到达交换机时通知发布者-SpringBoot
+
+```java
+1. 开启发布确认
+    spring:rabbitmq:publisher-confirm-type: correlated
+
+2. 定义交换机、队列、路由key
+    public static final String EXCHANGE_D = "D";
+    public static final String QUEUE_d = "d";
+    public static final String BINDING_Dd = "Dd";
+    @Bean
+    public DirectExchange DExchange() {
+        return new DirectExchange(EXCHANGE_D);
+    }
+    @Bean
+    public Queue queue_d() {
+        return QueueBuilder.durable(QUEUE_d).build();
+    }
+    @Bean
+    public Binding queue_dBindingD(Queue queue_d, DirectExchange DExchange) {
+        return BindingBuilder.bind(DExchange).to(DExchange).with(BINDING_Dd);
+    }
+
+3. 确认回调实现RabbitTemplate.ConfirmCallback接口（成功失败均会走该回调）
+    @Component
+    @Slf4j
+    public class ConfirmCb implements RabbitTemplate.ConfirmCallback {
+        @Override
+        public void confirm(CorrelationData correlationData, boolean ack, String cause) 		{
+            String id = correlationData != null ? correlationData.getId() : "";
+            if (ack) {
+                // 交换机已收到消息
+                log.info("交换机已经收到 id 为:{}的消息", id);
+            } else {
+                // 交换机未收到消息
+                log.info("交换机还未收到 id 为:{}消息,由于原因:{}", id, cause);
+            }
+        }
+    }
+
+4. 发布者
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+    @Autowired
+    private ConfirmCb confirmCb;
+    
+    // 依赖注入 rabbitTemplate 之后再设置它的回调对象
+    @PostConstruct
+    public void initConstruct(){
+        rabbitTemplate.setConfirmCallback(confirmCb);
+       
+    }
+
+    @GetMapping("/confirm")
+    public void producerConfirm2Msg(String msg) {
+        // 成功消息 设置消息id
+        CorrelationData s = new CorrelationData("1");
+        rabbitTemplate.convertAndSend(RabbitMqConfig.EXCHANGE_D, RabbitMqConfig.BINDING_Dd, msg.getBytes(StandardCharsets.UTF_8)+ "-success", s);
+
+        // 模拟失败消息 交换机设置错误
+        CorrelationData f = new CorrelationData("2");
+        rabbitTemplate.convertAndSend(RabbitMqConfig.EXCHANGE_D+"fail", RabbitMqConfig.BINDING_Dd, msg.getBytes(StandardCharsets.UTF_8) + "-fail", f);
+    }
+
+5. 订阅者
+    @RabbitListener(queues = RabbitMqConfig.QUEUE_d)
+    public void confirmConsumerMsg(Message msg){
+        String msgs = new String(msg.getBody());
+        log.info("当前时间：{},收到 交换机D-队列d 信息{}", new Date(), msgs);
+    }
+
+6. console
+    交换机已经收到 id 为:1的消息
+    当前时间：Sat Nov 19 13:35:48 CST 2022,收到 交换机D-队列d 信息
+        
+    交换机还未收到 id 为:2的消息,由于原因:channel error; protocol method:
+```
+
+#### RabbitMQ-发布确认-交换机无法路由到队列时通知发布者-SpringBoot
+
+```java
+在仅开启了生产者确认机制的情况下，交换机接收到消息后，会直接给消息生产者发送确认消息，如果发现该消息不可路由，那么消息会被直接丢弃，此时生产者是不知道消息被丢弃这个事件的
+
+1. 开启回退消息通知
+	spring:rabbitmq:template:mandatory: true
+        
+2. 回退回调实现RabbitTemplate.ReturnsCallback接口（无法路由到队列会走该回调）
+    @Component
+    @Slf4j
+    public class ReturnCb implements RabbitTemplate.ReturnsCallback {
+        @Override
+        public void returnedMessage(ReturnedMessage returned) {
+            log.error(" 消 息 {}, 被 交 换 机 {} 退 回 ， 退 回 原 因 :{}, 路 由 key:{}", new String(returned.getMessage().getBody()), returned.getExchange(), returned.getReplyText(), returned.getRoutingKey());
+        }
+    }
+
+3. 发布者
+    @Autowired
+    private ReturnCb returnCb;
+    @PostConstruct
+    public void initConstruct(){
+       rabbitTemplate.setReturnsCallback(returnCb);
+    }
+    @GetMapping("/returns")
+    public void producerReturn2Msg(String msg) {
+        // 成功消息 设置消息id
+        CorrelationData s = new CorrelationData("3");
+        rabbitTemplate.convertAndSend(RabbitMqConfig.EXCHANGE_D, RabbitMqConfig.BINDING_Dd, msg.getBytes(StandardCharsets.UTF_8), s);
+
+        // 模拟失败消息 路由key设置错误
+        CorrelationData f = new CorrelationData("4");
+        rabbitTemplate.convertAndSend(RabbitMqConfig.EXCHANGE_D, RabbitMqConfig.BINDING_Dd+"fail", msg.getBytes(StandardCharsets.UTF_8), f);
+    }
+```
+
+#### RabbitMQ-发布确认-备份交换机-SpringBoot
+
+```java
+设置回退消息后，我们需要手动的处理该消息，是不太优雅，可以给当前交换机准备一个【备用交换机】，当有不可路由或者无法投递的消息时，可以分发到备用交换机，再由备用交换机作其他队列优雅处理
+
+// 声明交换机、备用交换机
+ExchangeBuilder exchangeBuilder = ExchangeBuilder.directExchange("ENameA")
+.durable(true).withArgument("alternate-exchange", "ENameBackUp"); //设置该交换机的备份交换机
+return (DirectExchange)exchangeBuilder.build();
 ```
 
