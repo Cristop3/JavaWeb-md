@@ -1,5 +1,29 @@
 ## 20221119
 
+#### centos7下常用目录解释
+
+```shell
+# / 根目录
+这就是根目录。对你的电脑来说，有且只有一个根目录。所有的东西，我是说所有的东西都是从这里开始
+# /etc 
+这里主要存放了系统配置方面的文件。举个例子：你安装了docker这个套件，当你想要修改docker配置文件的时候，你会发现它们(配置文件)就在/etc/docker目录下
+# /home
+普通用户的家目录，该目录中保存了绝大多数的用户文件(用户自己的配置文件，定制文件，文档，数据等)，root用户除外。
+# /tmp
+这是临时目录。对于某些程序来说，有些文件被用了一次两次之后，就不会再被用到，像这样的文件就放在这里。有些linux系统会定期自动对这个目录进行清理，因此，千万不要把重要的数据放在这里。	
+# /var
+内容经常变化的目录,此目录下文件的大小可能会改变，如缓冲文件，日志文件，缓存文件，等一般都存放在这里。 /var 这个目录的内容是经常变动的，看名字就知道，我们可以理解为vary的缩写，/var下有/var/log 这是用来存放系统日志的目录。/var/www目录是定义Apache服务器站点存放目录；/var/lib 用来存放一些库文件，比如MySQL的，以及MySQL数据库的的存放地；/var/log 系统日志存放，分析日志要看这个目录的东西；
+/var/spool 打印机、邮件、代理服务器等假脱机目录；
+# /usr
+在这个目录下，你可以找到那些不适合放在/bin或/etc目录下的额外的工具。比如像游戏啊，一些打印工具等等。
+	# /usr/lib
+	目标库文件，包括动态连接库加上一些通常不是直接调用的可执行文件的存放位置。这个目录功能类似/lib目录，理说，这里存放的文件应该是/bin目录下程序所需要的库文件的存放地
+	# /usr/bin 
+	一般使用者使用并且不是系统自检等所必需可执行文件的目录。此目录相当于根文件系统下的对应目录（/bin，非启动系统，非修复系统以及非本地安装的程序一般都放在此目录下）
+	# /usr/local
+	安装本地程序的一般默认路径。这个目录主要存放那些手动安装的软件，一般是用来存放用户自编译安装软件的存放目录；或者一般是通过源码包安装的软件，如果没有特别指定安装目录的话，一般是安装在这个目录中。
+```
+
 #### docker-centos7下安装（内网走代理）
 
 ```shell
@@ -52,7 +76,22 @@ Environment="NO_PROXY=10.*,11.*" // 过滤
 
 ```java
 1. 镜像（image）
-    类比是一个目标，可以通过该目标来创建容器服务，比如：Tomcat镜像 -> run -> 容器（提供Tomcat服务器）并且通过这个镜像可以创建多个容器（最终服务运行或者项目运行就是在这些容器中）
+    1.1 概念
+        类比是一个目标，可以通过该目标来创建容器服务，比如：Tomcat镜像 -> run -> 容器（提供Tomcat服务器）并且通过这个镜像可以创建多个容器（最终服务运行或者项目运行就是在这些容器中）
+        镜像是一种轻量级、可执行的独立软件保，用来打包软件运行环境和基于运行环境开发的软件，他包含运行某个软件所需的所有内容，包括代码、运行时库、环境变量和配置文件。将所有的应用和环境，直接打包为docker镜像，就可以直接运行。
+    1.2 加载原理
+    	docker的镜像实际上由一层一层的文件系统组成，这种层级的文件系统UnionFS。Union文件系统（UnionFs）是一种分层、轻量级并且高性能的文件系统，他支持对文件系统的修改作为一次提交来一层层的叠加，同时可以将不同目录挂载到同一个虚拟文件系统下。一次同时加载多个文件系统，但从外面看起来，只能看到一个文件系统，联合加载会把各层文件系统叠加起来，这样最终的文件系统会包含所有底层的文件和目录。
+    	boots(boot file system）主要包含 bootloader和 Kernel, bootloader主要是引导加 kernel,
+Linux刚启动时会加bootfs文件系统，在 Docker镜像的最底层是 boots。这一层与我们典型的Linux/Unix系统是一样的，包含boot加載器和内核。当boot加载完成之后整个内核就都在内存中了，此时内存的使用权已由 bootfs转交给内核，此时系统也会卸载bootfs。
+		rootfs（root file system),在 bootfs之上。包含的就是典型 Linux系统中
+的/dev,/proc,/bin,/etc等标准目录和文件。 rootfs就是各种不同的操作系统发行版，比如 Ubuntu,
+Centos等等
+    1.3 分层
+    	采用这种分层的结构最大的好处，我觉得莫过于资源共享了！比如有多个镜像都从相同的Base镜像构建而来，那么宿主机只需在磁盘上保留一份base镜像，同时内存中也只需要加载一份base镜像，这样就可以为所有的容器服务了，而且镜像的每一层都可以被共享。
+    	docker inspect [容器id] 中的RootFS项 可看分层详细信息
+    	所有的 Docker镜像都起始于一个基础镜像层，当进行修改或培加新的内容时，就会在当前镜像层之
+上，创建新的镜像层。比如我们下载了个ubuntu镜像作为第一层【镜像层】在此镜像上添加了一个mysql应用，则mysql及后续添加的东西叫【容器层】
+    	此时若我们使用docker commit -m="描述该镜像信息" -a="作者" [容器id] [你所自定义的镜像名]:[Tag|版本标识]来生成一个自定义的镜像
     
 2. 容器（container）
     通过镜像来创建，可以独立运行一个或者一组应用
@@ -60,6 +99,8 @@ Environment="NO_PROXY=10.*,11.*" // 过滤
 3. 仓库（repository）
     存放镜像的地方
 ```
+
+![docker-image.png](https://s2.loli.net/2022/11/22/ZKdrtxyqIYk4GjH.png)
 
 #### docker常用命令
 
@@ -85,7 +126,7 @@ Environment="NO_PROXY=10.*,11.*" // 过滤
         docker pull [要下载的镜像名] # 下载镜像
         docker image pull [要下载的镜像名] # 下载镜像
 	
-	2.4 删除镜像
+	2.4 删除镜像(注意与删除容器区别 镜像：rmi 容器：rm)
         docker rmi -f [要删除的镜像id] # 删除镜像指定id镜像
         docker rmi -f $(docker images -aq) # 删除全部镜像
 	
@@ -168,7 +209,7 @@ Environment="NO_PROXY=10.*,11.*" // 过滤
         8ecf381fac48   ubuntu    "bash"    16 seconds ago   Up 15 seconds             wonderful_borg
         [root@localhost /]#
    	
-    3.5 删除容器
+    3.5 删除容器(注意与删除镜像区别  容器：rm 镜像：rmi)
         docker rm [容器id] # 删除非运行状态的容器
         docker rm -f [容器id] # 强制删除容器
         docker rm -f $(docker ps -aq)
@@ -252,5 +293,200 @@ docker exec -it myTomcat bash
 # 直接访问主机地址:4456会发现404
 cp -r webapps.dist/* webapps
 # 将webapps.dist下面所有文件拷贝到webapps 再次访问就会看到tomcat欢迎页
+```
+
+#### docker数据卷 -【 容器】与【主机】之间文件挂载关联
+
+```shell
+1. 用途
+	容器之间可以有一个数据共享的技术，Docker容器中产生的数据，同步到本地，目录的挂载，将我们容器内的目录，挂载到Linux上面，以实现容器内数据的持久化和同步操作且容器间也是可以数据共享的
+	
+2. 命令
+	# docker run -v [主机路径]:[容器内路径] | -v [主机路径]:[容器内路径] ...
+	# docker run --volume [主机路径]:[容器内路径] | --volume [主机路径]:[容器内路径] ...
+	
+3. 测试
+	docker pull mysql
+	docker run -d -p 3306:3306 -e MYSQL_ROOT_PASSWORD=[你的mysql root密码] 
+	-v /home/mysql/conf:/etc/mysql/conf.d 
+	-v /home/mysql/data:/var/lib/mysql 
+	--name "myMysql" 
+	mysql
+	docker ps
+	docker inspect [当前mysql容器id]
+	# 会看到卷挂载具体信息
+	"Mounts": [
+        {
+        "Type": "bind",
+        "Source": "/home/mysql/data",
+        "Destination": "/var/lib/mysql",
+        "Mode": "",
+        "RW": true,
+        "Propagation": "rprivate"
+        },
+        {
+        "Type": "bind",
+        "Source": "/home/mysql/conf",
+        "Destination": "/etc/mysql/conf.d",
+        "Mode": "",
+        "RW": true,
+        "Propagation": "rprivate"
+        }
+    ],
+    # 此时若我们在主机上操作/home/mysql/conf/conf.d文件，容器内的/etc/mysql/conf.d文件同步更新，或者在容器内操作/var/lib/mysql下文件，主机的/home/mysql/data下同步更改
+    # 且不论容器是否启动 修改主机的都会自动同步容器文件 这样就到达了【数据持久化】及不用【进入容器操作配置文件】等好处
+    
+4. 匿名挂载、具名挂载、指定路径挂载
+	匿名：docker run -d -P -v [容器内路径] [应用]
+	具名：docker run -d -P -v [给挂载取一个名字]:[容器内路径] [应用]
+	# 以上两种方式 可通过 docker volume ls查看
+	# 且默认存在在/var/lib/docker/volumes/[xxxx]下
+	指定：docker run -d -P -v [主机路径]:[容器路径] [应用]
+	# 这种方式 docker volume ls查看不到
+```
+
+#### docker数据卷容器 -【 容器】与【容器】之间文件挂载关联
+
+```shell
+1. 概念
+	可以在多个容器之间同步数据，而且容器之间的配置信息的传递，数据卷容器的生命周期一直持续到没有容器使用为止。但是一旦你持久化到了本地，这个时候，本地的数据是不会删除的！
+	
+2. 命令
+	docker run -it --name [需要挂载的容器名称] --volumes-from [被挂载的容器(也可称为数据卷容器或者父容器)] [镜像名] 
+	
+3. 测试
+	# 启动一个名称叫做【mysqlFather】且端口【3306映射3306】且将【主机/home/testV目录】挂载到【容器内根目录下/testV】
+	docker run -d --name "mysqlFather" -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root -v /home/testV/:/testV/ mysql
+	docker exec -it 6c64169f bash
+	# 查看是否存在testV并进入目录创建一个内容为"hello i am from father"的share.txt文件
+	bash-4.4# ls
+    bin   dev                         entrypoint.sh  home  lib64  mnt  proc  run   srv  【testV】  usr
+    boot  docker-entrypoint-initdb.d  etc            lib   media  opt  root  sbin  sys  tmp    var
+    cd testV && echo "hello i am from father" > share.txt
+    # 退回主机查看/home/testV
+    [root@localhost testV]# ls
+	share.txt
+	----------------- 以上是容器卷-v命令的持久化内容 -----------------
+	# 启动一个名称叫做【mysqlSon】且端口【3307映射3306】且将挂载到【父容器名称mysqlFather】下
+	docker run -d --name "mysqlSon" -p 3307:3306 -e MYSQL_ROOT_PASSWORD=root --volumes-from mysqlFather  mysql
+	docker exec -it 688d12da6594 bash
+	# 发现根目录下同样存在testV及其下的share.txt文件
+	bash-4.4# cat share.txt
+	hello i am from father
+	# 在子容器中修改该文件
+	echo "hello i am from father; hi i change by son" > share.txt
+	# 回到主机 查看
+	[root@localhost testV]#  cat share.txt 
+	hello i am from father; hi i change by son
+    # 查看父容器
+    [root@localhost testV]# docker exec -it 6c64169f2f4a bash
+    bash-4.4# cat share.txt 
+	hello i am from father; hi i change by son
+	----------------- 以上是容器与容器之间--volumes-from命令的同步内容 -----------------
+```
+
+#### Dockerfile及制作
+
+```shell
+1. 概念
+	dockerfile 是用来构建docker镜像的文件，命令参数脚本。
+	
+2. 构建步骤
+	2.1 编写DockerFile文件
+	2.2 docker build 构建镜像
+	2.3 docker run 运行镜像
+	2.4 docker push 发布镜像
+	
+3. DockerFile编写规范
+    3.1 每个保留关键字(指令）都是必须是大写字母
+    3.2 执行从上到下顺序
+    3.3 #表示注释
+    3.4 每一个指令都会创建提交一个新的镜像曾，并提交！
+    
+4. DockerFile常用指令
+    FROM # 基础镜像，一切从这里开始构建
+    MAINTAINER # 镜像是谁写的， 姓名+邮箱
+    RUN # 镜像构建的时候需要运行的命令
+    ADD # 步骤，tomcat镜像，这个tomcat压缩包！添加内容 添加同目录
+    WORKDIR # 镜像的工作目录
+    VOLUME # 挂载的目录
+    EXPOSE # 保留端口配置
+    CMD # 指定这个容器启动的时候要运行的命令，只有最后一个会生效，可被替代。
+    ENTRYPOINT # 指定这个容器启动的时候要运行的命令，可以追加命令
+    ONBUILD # 当构建一个被继承 DockerFile 这个时候就会运行ONBUILD的指令，触发指令。
+    COPY # 类似ADD，将我们文件拷贝到镜像中
+    ENV # 构建的时候设置环境变量！
+    
+    CMD # 指定这个容器启动的时候要运行的命令，只有最后一个会生效（前面的命令无效），可被替代。
+    ENTRYPOINT # 指定这个容器启动的时候要运行的命令，可以追加命令
+    
+5. 完整交付
+    DockerFile：构建文件，定义了一切的步骤，源代码
+    DockerImages：通过DockerFile构建生成的镜像，最终发布和运行产品。
+    Docker容器：容器就是镜像运行起来提供服务。	
+```
+
+#### DockerFile-构建一个具备vim命令的ubuntu
+
+```shell
+# 目前安装的ubuntu不带vim命令 构建一个具备vim的自定义ubuntu
+[root@localhost /]# docker run -it a8780b506fa4 bash
+root@ae462a952854:/# ls
+bin   dev  home  lib32  libx32  mnt  proc  run   srv  tmp  var
+boot  etc  lib   lib64  media   opt  root  sbin  sys  usr
+root@ae462a952854:/# vim
+bash: vim: command not found
+
+# 主机下创建DockerFile文件
+[root@localhost /]# cd /home && mkdir dockerfiles && cd dockerfiles && touch Dockerfile
+[root@localhost dockerfiles]# ls
+DockerFile
+[root@localhost dockerfiles]# vim Dockerfile 
+
+#基于ubuntu构建
+FROM ubuntu
+#作者信息
+MAINTAINER caristop3<qq@qq.com>
+#配置环境变量
+ENV MYPATH /usr/local
+#设置工作目录（也就是进入容器后的默认目录，使用$引用变量）
+WORKDIR $MYPATH
+#镜像构建的时候需要运行的命令
+RUN apt-get install vim
+#启动容器时执行的命令
+CMD echo $MYPATH
+CMD echo "-----done-----"
+CMD ["bash"]
+
+docker build -f [需要build的dockerfile文件名] -t [打包成为镜像的名称]:[Tag]
+若你的dockerfile文件名就是【Dockerfile】则可以省略 -f 参数 直接
+docker build -t [打包成为镜像的名称]:[Tag]
+```
+
+#### DockerFile-构建一个Tomcat web服务器
+
+```shell
+FROM centos #
+
+MAINTAINER cheng<1204598429@qq.com>
+
+COPY README /usr/local/README # 复制文件
+
+ADD jdk-8u231-linux-x64.tar.gz /usr/local/ # 复制解压
+ADD apache-tomcat-9.0.35.tar.gz /usr/local/ # 复制解压
+
+RUN yum -y install vim
+
+ENV MYPATH /usr/local # 设置环境变量
+
+WORKDIR $MYPATH # 设置工作目录
+
+ENV JAVA_HOME /usr/local/jdk1.8.0_231 # 设置环境变量
+ENV CATALINA_HOME /usr/local/apache-tomcat-9.0.35 # 设置环境变量
+ENV PATH $PATH:$JAVA_HOME/bin:$CATALINA_HOME/lib # 设置环境变量 分隔符是：
+
+EXPOSE 8080 # 设置暴露的端口
+
+CMD /usr/local/apache-tomcat-9.0.35/bin/startup.sh && tail -F /usr/local/apache-tomcat-9.0.35/logs/catalina.out # 设置默认命令
 ```
 
