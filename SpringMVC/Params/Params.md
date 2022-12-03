@@ -215,3 +215,44 @@ DispatcherServlet中就会将请求参数赋值给相应的形参
     </filter-mapping>
 ```
 
+## 20221130 - 补充@RequestBody与@RequestParam区别
+
+```shell
+@RequestParam
+	1. GET方式 问号传参 
+	GET xxx?id=1&name=我是get问号传参方式
+	# test(@RequestParam("id") String id, @RequestParam("name") String name) --- 带指定参数
+	# test(@RequestParam String id, @RequestParam String name) --- 不带指定参数
+	# test(@RequestParam Map<String, String> query) --- 用Map来接收参数 query:{id:1,name:"我是get问号传参方式"}
+	
+	2. POST方式 x-www-form-urlencoded表单提交 （GET方式同上编码成名称/值对追加到url?后面）
+	POST xxx
+	# test(@RequestParam("id") String id, @RequestParam("name") String name) --- 带指定参数
+	# test(@RequestParam String id, @RequestParam String name) --- 不带指定参数
+	# test(@RequestParam Map<String, String> query) --- 用Map来接收参数 query:{id:1,name:"我是get问号传参方式"}
+	# test(@RequestParam("jsonXxx") String json) --- 传JSON.stringify格式过来 这边用JSON包解析 相当于多组参数整合传输
+	
+	3. POST方式 multipart/form-data表单提交（基本同POST的x-www-form-urlencoded，但多用于文件上传时使用）
+	# test(@RequestParam("id") String id, @RequestParam("name") String name) --- 带指定参数
+	# test(@RequestParam String id, @RequestParam String name) --- 不带指定参数
+	# test(@RequestParam Map<String, String> query) --- 用Map来接收参数 query:{id:1,name:"我是get问号传参方式"}
+	# test(@RequestParam("jsonXxx") String json) --- 传JSON.stringify格式过来 这边用JSON包解析 相当于多组参数整合传输
+	
+@RequestBody
+	只支持【POST方式】且方式为【application/json】，但可与【问号传参】混合使用
+	1. 以String接收
+	# test(@RequestBody String jsonString)
+	
+	2. 以Map接收
+	# test(@RequestBody Map<String, String> map)
+	
+	3. 以实体类接收
+	# test(@RequestBody User user)
+	
+	4. 以Object超类接收
+	# test(@RequestBody Object object)
+	
+	5. 混合使用
+	# test(@RequestBody User user, @RequestParam String id)
+```
+

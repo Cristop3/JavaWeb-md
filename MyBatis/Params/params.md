@@ -13,7 +13,7 @@ public interface UserMapper {
 
 // UserMapper.xml
 <!--    1. 单个字面量传参 查询 getUserById-->
-    <select id="getUserById" resultType="user">
+    <select id="getUserById" resultType="user" parameterType="int">
         select *
         from t_user
         where id = #{id}
@@ -30,7 +30,7 @@ public interface UserMapper {
 <!--        from t_user-->
 <!--        where username = #{username}-->
 <!--    </select>-->
-    <select id="getUserByName" resultType="user">
+    <select id="getUserByName" resultType="user" parameterType="string">
         select *
         from t_user
         where username = '${username}'
@@ -51,6 +51,19 @@ System.out.println("单个字面量参数获取方式: " + user);
     2. 切在#{}、${}中的参数名称可以以"任意名称"来获取,如上面的username可以用"xxx"获取
     3. 但在使用${}时需要注意的时为String类型时需要主动加上单引号
     4. #{}本质为占位符，而${}本质为字符串sql拼接
+```
+
+#### 2022-11-30 补充-参数使用parameterType
+
+```java
+Mapper文件中的select、insert、update、delete元素中有一个parameterType属性，用于对应的mapper接口方法接受的参数类型    
+    
+    1. 若是基本类型比如int\string\long这些 如：parameterType="string"
+    2. 若是实体对象 如：parameterType="user" // 若没有设置实体类别名 则需要写类全路径com.xx.xx.xxx.User
+    3. 若是Map类型  如：parameterType="map"
+    4. 若是复杂类型 如: parameterType="hashmap"
+        
+    实际操作中 不写parameterType也能编译通过
 ```
 
 #### 多个字面量类型的参数
@@ -126,7 +139,7 @@ System.out.println("map类型参数获取方式: " + user);
 		    
 // UserMapper.xml
 	<!--    4. 实体类类型参数传参 插入 insertUserByPojo-->
-    <insert id="insertUserByPojo">
+    <insert id="insertUserByPojo" >
         insert into t_user
         values (null, #{username}, #{password}, #{sex}, #{age}, #{email})
     </insert>

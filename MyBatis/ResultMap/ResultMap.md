@@ -74,6 +74,8 @@ resultMap : 设置自定义映射
             其属性：
             	property : 设置映射关系中实体类中的属性名
 	            column ： 设置映射关系中表中的字段名
+	            jdbcType: 数据库字段类型
+	            javaType：java中得数据类型
  
 2. 学生表和老师表 sql
    CREATE DATABASE /*!32312 IF NOT EXISTS*/`mybatis` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
