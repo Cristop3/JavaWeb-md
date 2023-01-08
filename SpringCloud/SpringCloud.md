@@ -874,3 +874,922 @@ public class FeignConfig
 }
 ```
 
+## 20221231
+
+### 断路器
+
+#### 1. Hystrix
+
+##### 分布式系统面临的问题
+
+```shell
+# 问题
+复杂分布式体系结构中的应用程序有数十个依赖关系，每个依赖关系在某些时候将不可避免地失败。
+
+# 服务雪崩
+多个微服务之间调用的时候，假设微服务A调用微服务B和微服务C，微服务B和微服务C又调用其它的微服务，这就是所谓的“扇出”。如果扇出的链路上某个微服务的调用响应时间过长或者不可用，对微服务A的调用就会占用越来越多的系统资源，进而引起系统崩溃
+```
+
+##### 基础概念
+
+```shell
+# Hystrix是什么
+Hystrix是一个用于处理分布式系统的【延迟】和【容错】的开源库，在分布式系统里，许多依赖不可避免的会调用失败，比如超时、异常等，Hystrix能够保证在一个依赖出问题的情况下，【不会导致整体服务失败，避免级联故障，以提高分布式系统的弹性】。
+
+# Hystrix是如何处理
+“断路器”本身是一种开关装置，当某个服务单元发生故障之后，通过断路器的故障监控（类似熔断保险丝），【向调用方返回一个符合预期的、可处理的备选响应（FallBack），而不是长时间的等待或者抛出调用方无法处理的异常】，这样就保证了服务调用方的线程不会被长时间、不必要地占用，从而避免了故障在分布式系统中的蔓延，乃至雪崩。
+
+# Hystrix能提供哪些功能
+1. 服务降级
+2. 服务熔断
+3. 接近实时的监控
+```
+
+##### 服务降级
+
+```shell
+# 那些情况下会触发服务降级
+1. 程序运行时异常
+2. 超时
+3. 服务熔断 -> 触发服务降级
+4. 线程池、信号量打满
+
+# 服务降级时会怎么处理
+向调用方返回一个符合预期的、可处理的备选响应 Fallback处理
+
+# 在哪方配置降级
+可同时在【服务方】和【消费方】作服务降级处理
+1. 调用【服务方】- “超时”，【消费方】可降级
+2. 调用【服务方】- “down机”，【消费方】可降级
+3. 调用【服务方】- “异常”，【消费方】可降级
+4. 调用【消费方】- 【服务方】“正常”，但【消费方】- “down机、设置超时较小或异常”，自身可降级
+
+# 消费者80、服务者8001
+1. 服务方8001
+    # 关键pom
+    <!--hystrix-->
+    <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-starter-netflix-hystrix</artifactId>
+    </dependency>
+    <!--eureka client-->
+    <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+    </dependency>
+    # yml
+    server:
+      port: 8001
+    spring:
+      application:
+        name: cloud-provider-hystrix-payment
+    eureka:
+      client:
+        service-url:
+          defaultZone: http://localhost:7001/eureka
+    # 主启动
+    @SpringBootApplication
+    @EnableEurekaClient
+    public class HystrixPaymentMain8001 {
+        public static void main(String[] args) {
+            SpringApplication.run(HystrixPaymentMain8001.class, args);
+        }
+    }
+    # Service impl
+    @Service
+    public class HystrixPaymentServiceImpl implements HystrixPaymentService {
+        @Override
+        public String paymentOk(Integer id) {
+            return "访问成功！当前线程池名称：" + Thread.currentThread().getName() + " paymentOk方法，传入id是：" + id;
+        }
+        @Override
+        public String paymentTimeout(Integer id) {
+            try{
+                TimeUnit.SECONDS.sleep(3);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            return "访问成功！当前线程池名称：" + Thread.currentThread().getName() + " paymentTimeout方法，传入id是：" + id;
+        }
+    }
+    # Controller 
+    @RestController
+    @Slf4j
+    @RequestMapping("/provider/payment/hystrix")
+    public class HystrixPaymentController {
+        @Resource
+        private HystrixPaymentService hystrixPaymentService;
+        @Value("${server.port}")
+        private String serverPort;
+        @GetMapping("/ok/{id}")
+        public String paymentOk(@PathVariable("id") Integer id) {
+            String result = hystrixPaymentService.paymentOk(id);
+            log.info("paymentOk----result", result);
+            return result;
+        }
+        @GetMapping("/timeout/{id}")
+        public String paymentTimeout(@PathVariable("id") Integer id) {
+            String result = hystrixPaymentService.paymentTimeout(id);
+            log.info("paymentTimeout----result", result);
+            return result;
+        }
+    }
+    
+2. 消费方80
+    # 关键pom
+    <!--openfeign-->
+    <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-starter-openfeign</artifactId>
+    </dependency>
+    <!--hystrix-->
+    <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-starter-netflix-hystrix</artifactId>
+    </dependency>
+    <!--eureka client-->
+    <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+    </dependency>
+    # yml
+    server:
+      port: 80
+
+    eureka:
+      client:
+        service-url:
+          defaultZone: http://localhost:7001/eureka
+    # 主启动
+    @SpringBootApplication
+    @EnableEurekaClient
+    @EnableFeignClients
+    public class HystrixOrderMain80 {
+        public static void main(String[] args) {
+            SpringApplication.run(HystrixOrderMain80.class, args);
+        }
+    }
+    # OpenFeign
+    @Service
+    @FeignClient("CLOUD-PROVIDER-HYSTRIX-PAYMENT")
+    public interface PaymentHystrixService {
+        @GetMapping("/ok/{id}")
+        String paymentOk(@PathVariable("id") Integer id);
+
+        @GetMapping("/timeout/{id}")
+        String paymentTimeout(@PathVariable("id") Integer id);
+    }
+    # Controller
+    @RestController
+    @Slf4j
+    @RequestMapping("/consumer/order/")
+    public class OrderHystrixController {
+        @Autowired
+        private PaymentHystrixService paymentHystrixService;
+
+        @GetMapping("/ok/{id}")
+        public String orderOk(@PathVariable("id") Integer id){
+            return paymentHystrixService.paymentOk(id);
+        }
+
+        @GetMapping("/timeout/{id}")
+        public String orderTimeout(@PathVariable("id") Integer id){
+            return paymentHystrixService.paymentTimeout(id);
+        }
+    }
+
+# 如何配置
+1. 服务者8001
+    # 开启Hystrix的服务降级
+    @SpringBootApplication
+    @EnableEurekaClient
+    @EnableCircuitBreaker # 切记需要开启
+    public class HystrixPaymentMain8001 {
+        public static void main(String[] args) {
+            SpringApplication.run(HystrixPaymentMain8001.class, args);
+        }
+    }
+
+    # Service Impl 配置降级fallback方法
+    @Override
+        @HystrixCommand(
+        fallbackMethod = "paymentTimeout_fallback", # 降级方法名称
+        commandProperties = {
+                @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "3000") # 超时3秒后 自动调用fallbackMethod
+        })
+        public String paymentTimeout(Integer id) {
+            try {
+                TimeUnit.SECONDS.sleep(5); # 暂停5秒
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            return "访问成功！当前线程池名称：" + Thread.currentThread().getName() + " paymentTimeout方法，传入id是：" + id;
+        }
+        # 降级fallback方法
+        public String paymentTimeout_fallback(Integer id) {
+            return "调用paymentTimeout超时或者异常：" + "\t当前线程池名字：" + Thread.currentThread().getName() + "id:" + id;
+        }
+        
+2. 消费者80
+# yml 配置feign的hystrix开启
+feign:
+  hystrix:
+    enabled: true
+    
+# 主启动 开启Hystrix
+@SpringBootApplication
+@EnableEurekaClient
+@EnableFeignClients
+@EnableHystrix # 开启Hystrix
+public class HystrixOrderMain80 {
+    public static void main(String[] args) {
+        SpringApplication.run(HystrixOrderMain80.class, args);
+    }
+}
+
+# 由于使用OpenFeign则消费者在Controller层开启服务降级
+@GetMapping("/timeout/{id}")
+@HystrixCommand(
+	fallbackMethod = "orderTimeout_fallback",
+	commandProperties = {
+		@HystrixProperty(
+			name = "execution.isolation.thread.timeoutInMilliseconds",
+			value = "1500"
+		)
+	}
+)
+public String orderTimeout(@PathVariable("id") Integer id) {
+	return paymentHystrixService.paymentTimeout(id);
+}
+
+public String orderTimeout_fallback(Integer id) {
+	return "消费者，fallback方法";
+}
+
+3. 以上存在的不优雅地方
+	# 3.1 每个方法都对应了一个fallback方法 造成代码膨胀
+		采用@DefaultProperties注解中的defaultFallback属性
+		
+		@DefaultProperties(
+                defaultFallback = "orderTimeout_global_fallback",
+                commandProperties = {
+                    @HystrixProperty(
+                            name = "execution.isolation.thread.timeoutInMilliseconds",
+                            value = "4500"
+                    )
+        })
+        public class OrderHystrixController {
+            @GetMapping("/timeout/global/{id}")
+            @HystrixCommand
+            public String orderTimeoutGlobal(Integer id) {
+                return paymentHystrixService.paymentTimeout(id);
+            }
+
+            public String orderTimeout_global_fallback() {
+                return "我是公共的fallback方法";
+            }
+        }
+        
+	# 3.2 fallback逻辑同业务逻辑混在一起（消费方Feign接口）
+		独立一个类，去实现Feign接口，重写的方法就是fallback方法
+		@Component
+            public class PaymentHystrixFallbackService implements PaymentHystrixService{
+                @Override
+                public String paymentOk(Integer id) {
+                    return null;
+                }
+
+                @Override
+                public String paymentTimeout(Integer id) {
+                    return "单独fallback类实现Feign接口"; # 异常处理方法
+                }
+            }
+            
+          @Service
+            @FeignClient(value = "CLOUD-PROVIDER-HYSTRIX-PAYMENT",fallback = PaymentHystrixFallbackService.class) # 指明fallback到具体类
+            public interface PaymentHystrixService {
+                @GetMapping("/ok/{id}")
+                String paymentOk(@PathVariable("id") Integer id);
+
+                @GetMapping("/timeout/{id}")
+                String paymentTimeout(@PathVariable("id") Integer id);
+            }
+```
+
+##### 服务熔断
+
+```shell
+# 熔断是什么
+	熔断机制是应对雪崩效应的一种微服务链路保护机制。当扇出链路的某个微服务出错不可用或者响应时间太长时，会进行服务的降级，进而熔断该节点微服务的调用，快速返回错误的响应信息。【当检测到该节点微服务调用响应正常后，恢复调用链路】。
+	在Spring Cloud框架里，熔断机制通过Hystrix实现。Hystrix会监控微服务间调用的状况，当失败的调用到一定阈值，缺省是5秒内20次调用失败，就会启动熔断机制。熔断机制的注解是【@HystrixCommand】。
+	熔断在降级的基础上，增加了一种缓冲机制及最特殊的恢复调用，当open时也是走的降级。
+	
+# 熔断类型
+	熔断打开（open）：请求不再进行调用当前服务，内部设置时钟一般为MTTR（平均故障处理时间)，当打开时长达到所设时钟则进入半熔断状态。
+	熔断半开（halfOpen）：部分请求根据规则调用当前服务，如果请求成功且符合规则则认为当前服务恢复正常，关闭熔断。
+	熔断关闭（close）：熔断关闭不会对服务进行熔断，恢复正常链路。
+	
+# 如何配置开启熔断功能
+	@HystrixCommand(
+		fallbackMethod = "paymentCircuitBreaker_fallback",
+		commandProperties = {
+		    # 1. 开启熔断
+        	@HystrixProperty(name = "circuitBreaker.enabled",value = "true"),
+        	# 2. 在具体的时间范围内有以下情况发生
+        	@HystrixProperty(name = "circuitBreaker.sleepWindowInMilliseconds",value = "10000"),
+        	# 3. 请求次数超过了峰值，将打开熔断
+        	@HystrixProperty(name = "circuitBreaker.requestVolumeThreshold",value = "10"), 
+        	# 4. 失败率达多少后，将打开熔断
+        	@HystrixProperty(name = "circuitBreaker.errorThresholdPercentage",value = "60"),
+	})
+	
+# 熔断在什么情况下起作用说明
+	涉及到断路器的三个重要参数：【快照时间窗】、【请求总数阀值】、【错误百分比阀值】。
+    1：快照时间窗【circuitBreaker.sleepWindowInMilliseconds】：断路器确定是否打开需要统计一些请求和错误数据，而统计的时间范围就是快照时间窗，默认为最近的10秒。
+	2：请求总数阀值【circuitBreaker.requestVolumeThreshold】：在快照时间窗内，必须满足请求总数阀值才有资格熔断。默认为20，意味着在10秒内，如果该hystrix命令的调用次数不足20次，即使所有的请求都超时或其他原因失败，断路器都不会打开。
+	3：错误百分比阀值【circuitBreaker.errorThresholdPercentage】：当请求总数在快照时间窗内超过了阀值，比如发生了30次调用，如果在这30次调用中，有15次发生了超时异常，也就是超过50%的错误百分比，在默认设定50%阀值情况下，这时候就会将断路器打开。	
+
+# 熔断发生例子：
+	1. 当满足一定的阀值的时候（默认10秒内超过20个请求次数）
+	2. 当失败率达到一定的时候（默认10秒内超过50%的请求失败）
+	3. 到达以上阀值，断路器将会开启
+	4. 当开启的时候，所有请求都不会进行转发
+	5. 一段时间之后（默认是5秒），这个时候断路器是半开状态，会让其中一个请求进行转发。
+	6. 如果成功，断路器会关闭，若失败，继续开启。重复4和5
+	
+# 熔断恢复链路说明
+	hystrix也为我们实现了自动恢复功能。当断路器打开，对主逻辑进行熔断之后，hystrix会启动一个休眠时间窗，在这个时间窗内，降级逻辑是临时的成为主逻辑，当休眠时间窗到期，断路器将进入半开状态，释放一次请求到原来的主逻辑上，如果此次请求正常返回，那么断路器将继续闭合，主逻辑恢复，如果这次请求依然有问题，断路器继续进入打开状态，休眠时间窗重新计时。
+	
+# 熔断参数配置
+	# 设置隔离策略，THREAD 表示线程池 SEMAPHORE：信号池隔离
+	@HystrixProperty(name = "execution.isolation.strategy", value = "THREAD")
+	
+	# 当隔离策略选择信号池隔离的时候，用来设置信号池的大小（最大并发数）
+	@HystrixProperty(name = "execution.isolation.semaphore.maxConcurrentRequests", value = "10")
+	
+	# 配置命令执行的超时时间
+	@HystrixProperty(name = "execution.isolation.thread.timeoutinMilliseconds", value = "10")
+	
+	# 是否启用超时时间
+	@HystrixProperty(name = "execution.timeout.enabled", value = "true")
+	
+	# 执行超时的时候是否中断
+	@HystrixProperty(name = "execution.isolation.thread.interruptOnTimeout", value = "true")
+	
+	# 执行被取消的时候是否中断
+	@HystrixProperty(name = "execution.isolation.thread.interruptOnCancel", value = "true")
+	
+	# 允许回调方法执行的最大并发数
+	@HystrixProperty(name = "fallback.isolation.semaphore.maxConcurrentRequests", value = "10")
+	
+	# 服务降级是否启用，是否执行回调函数
+	@HystrixProperty(name = "fallback.enabled", value = "true")
+	
+	# 是否启用断路器
+	@HystrixProperty(name = "circuitBreaker.enabled", value = "true")
+	
+	# 该属性用来设置在滚动时间窗中，断路器熔断的最小请求数。例如，默认该值为 20 的时候，如果滚动时间窗（默认10秒）内仅收到了19个请求， 即使这19个请求都失败了，断路器也不会打开
+	@HystrixProperty(name = "circuitBreaker.requestVolumeThreshold", value = "20")
+	
+	# 属性用来设置在滚动时间窗中，表示在滚动时间窗中，在请求数量超过，默认50%
+	@HystrixProperty(name = "circuitBreaker.errorThresholdPercentage", value = "50")
+	
+	# 该属性用来设置当断路器打开之后的休眠时间窗。 休眠时间窗结束之后，会将断路器置为 "半开" 状态，尝试熔断的请求命令，如果依然失败就将断路器继续设置为 "打开" 状态，如果成功就设置为 "关闭" 状态
+	@HystrixProperty(name = "circuitBreaker.sleepWindowinMilliseconds", value = "5000")
+	
+	# 断路器强制打开
+	@HystrixProperty(name = "circuitBreaker.forceOpen", value = "false")
+	
+	# 断路器强制关闭
+	@HystrixProperty(name = "circuitBreaker.forceClosed", value = "false")
+	
+	# 滚动时间窗设置，该时间用于断路器判断健康度时需要收集信息的持续时间
+	@HystrixProperty(name = "metrics.rollingStats.timeinMilliseconds", value = "10000")
+	
+	# 该属性用来设置滚动时间窗统计指标信息时划分"桶"的数量，断路器在收集指标信息的时候会根据。设置的时间窗长度拆分成多个 "桶" 来累计各度量值，每个"桶"记录了一段时间内的采集指标。比如 10 秒内拆分成 10 个"桶"收集这样，所以 timeinMilliseconds 必须能被 numBuckets 整除。否则会抛异常。
+	@HystrixProperty(name = "metrics.rollingStats.numBuckets", value = "10")
+	
+	# 该属性用来设置对命令执行的延迟是否使用百分位数来跟踪和计算。如果设置为 false, 那么所有的概要统计都将返回 -1
+	@HystrixProperty(name = "metrics.rollingPercentile.enabled", value = "false")
+	
+	# 该属性用来设置百分位统计的滚动窗口的持续时间，单位为毫秒。
+	@HystrixProperty(name = "metrics.rollingPercentile.timeInMilliseconds", value = "60000")
+	
+	# 该属性用来设置百分位统计滚动窗口中使用 “ 桶 ”的数量。
+	@HystrixProperty(name = "metrics.rollingPercentile.numBuckets", value = "60000")
+	
+	# 该属性用来设置在执行过程中每个 “桶” 中保留的最大执行次数。如果在滚动时间窗内发生超过该设定值的执行次数，就从最初的位置开始重写。例如，将该值设置为100, 滚动窗口为10秒，若在10秒内一个 “桶 ”中发生了500次执行，那么该 “桶” 中只保留 最后的100次执行的统计。另外，增加该值的大小将会增加内存量的消耗，并增加排序百分位数所需的计算时间。
+	@HystrixProperty(name = "metrics.rollingPercentile.bucketSize", value = "100")
+	
+	# 该属性用来设置采集影响断路器状态的健康快照（请求的成功、 错误百分比）的间隔等待时间。
+	@HystrixProperty(name = "metrics.healthSnapshot.intervalinMilliseconds", value = "500")
+	
+	# 是否开启请求缓存
+	@HystrixProperty(name = "requestCache.enabled", value = "true")
+	
+	# HystrixCommand的执行和事件是否打印日志到 HystrixRequestLog 中
+	@HystrixProperty(name = "requestLog.enabled", value = "true")
+	
+	# 线程池相关
+	threadPoolProperties = {
+		# 该参数用来设置执行命令线程池的核心线程数，该值也就是命令执行的最大并发量
+		@HystrixProperty(name = "coreSize", value = "10")
+		
+		# 该参数用来设置线程池的最大队列大小。当设置为 -1 时，线程池将使用 SynchronousQueue 实现的队列，否则将使用 LinkedBlockingQueue 实现的队列
+		@HystrixProperty(name = "maxQueueSize", value = "-1")
+		
+		# 该参数用来为队列设置拒绝阈值。 通过该参数， 即使队列没有达到最大值也能拒绝请求。该参数主要是对 LinkedBlockingQueue 队列的补充,因为 LinkedBlockingQueue，队列不能动态修改它的对象大小，而通过该属性就可以调整拒绝请求的队列大小了。
+		@HystrixProperty(name = "queueSizeRejectionThreshold", value = "5")
+	}
+	
+# Hystrix工作流程
+	1. 创建 HystrixCommand（用在依赖的服务返回单个操作结果的时候） 或 HystrixObserableCommand（用在依赖的服务返回多个操作结果的时候） 对象。
+	2. 	命令执行。其中 HystrixComand 实现了下面前两种执行方式；而 HystrixObservableCommand 实现了后两种执行方式：
+		execute()：同步执行，从依赖的服务返回一个单一的结果对象， 或是在发生错误的时候抛出异常。		 queue()：异步执行， 直接返回 一个Future对象， 其中包含了服务执行结束时要返回的单一结果对象。
+		observe()：返回 Observable 对象，它代表了操作的多个结果，它是一个 Hot Obserable（不论 "事件源" 是否有 "订阅者"，都会在创建后对事件进行发布，所以对于 Hot Observable 的每一个 "订阅者" 都有可能是从 "事件源" 的中途开始的，并可能只是看到了整个操作的局部过程）。
+		toObservable()： 同样会返回 Observable 对象，也代表了操作的多个结果，但它返回的是一个Cold Observable（没有 "订阅者" 的时候并不会发布事件，而是进行等待，直到有 "订阅者" 之后才发布事件，所以对于 Cold Observable 的订阅者，它可以保证从一开始看到整个操作的全部过程）。
+	3. 若当前命令的请求缓存功能是被启用的， 并且该命令缓存命中， 那么缓存的结果会立即以 Observable 对象的形式 返回。
+	4. 	检查断路器是否为打开状态。如果断路器是打开的，那么Hystrix不会执行命令，而是转接到 fallback 处理逻辑（第 8 步）；如果断路器是关闭的，检查是否有可用资源来执行命令（第 5 步）。
+	5. 线程池/请求队列/信号量是否占满。如果命令依赖服务的专有线程池和请求队列，或者信号量（不使用线程池的时候）已经被占满， 那么 Hystrix 也不会执行命令， 而是转接到 fallback 处理逻辑（第8步）。
+	6. 	Hystrix 会根据我们编写的方法来决定采取什么样的方式去请求依赖服务。HystrixCommand.run() ：返回一个单一的结果，或者抛出异常。HystrixObservableCommand.construct()： 返回一个Observable 对象来发射多个结果，或通过 onError 发送错误通知。
+	7. Hystrix会将 "成功"、"失败"、"拒绝"、"超时" 等信息报告给断路器， 而断路器会维护一组计数器来统计这些数据。断路器会使用这些统计数据来决定是否要将断路器打开，来对某个依赖服务的请求进行 "熔断/短路"。
+	8. 当命令执行失败的时候， Hystrix 会进入 fallback 尝试回退处理， 我们通常也称该操作为 "服务降级"。而能够引起服务降级处理的情况有下面几种：第4步： 当前命令处于"熔断/短路"状态，断路器是打开的时候。第5步： 当前命令的线程池、 请求队列或 者信号量被占满的时候。第6步HystrixObservableCommand.construct() 或 HystrixCommand.run() 抛出异常的时候。
+	9. 当Hystrix命令执行成功之后， 它会将处理结果直接返回或是以Observable 的形式返回。
+	
+	10. 如果我们没有为命令实现降级逻辑或者在降级处理逻辑中抛出了异常， Hystrix 依然会返回一个 Observable 对象， 但是它不会发射任何结果数据， 而是通过 onError 方法通知命令立即中断请求，并通过onError()方法将引起命令失败的异常发送给调用者。
+```
+
+![hystrix-熔断原理.png](https://s2.loli.net/2023/01/07/ufXQPAHtU6D3hjM.png)
+
+![hystrix-熔断工作流程.png](https://s2.loli.net/2023/01/07/qL2MbXAVEZ5DJiw.png)
+
+## 20230107
+
+### 网关
+
+#### 1. Zuul
+
+##### 什么是网关
+
+![Api网关.png](https://s2.loli.net/2023/01/08/VBJEcAoIKtTDUe5.png)
+
+```shell
+1. API网关为微服务架构中的服务提供了【统一的访问入口】，【客户端】通过API网关【访问相关服务】
+2. API网关的定义类似于设计模式中的【门面模式】，它相当于整个微服务架构中的门面，所有【客户端的访问】都通过它来【进行路由及过滤】。它实现了【请求路由】、【负载均衡】、【校验过滤】、【服务容错】、【服务聚合】等功能。
+```
+
+##### 什么是Zuul
+
+```shell
+1. Zuul是一种提供动态路由、监视、弹性、安全性等功能的边缘服务。
+2. Zuul是Netflix出品的一个基于JVM路由和服务端的负载均衡器。
+3. Zuul具备代理+路由+过滤三大功能。
+```
+
+##### 网关的负载均衡
+
+![Api网关-负载均衡.png](https://s2.loli.net/2023/01/08/JWE7N1ok9AqMsge.png)
+
+```shell
+1. 网关为入口，由网关与微服务进行交互，所以网关必须要实现负载均衡的功能；
+2. 网关会获取微服务注册中心里面的服务连接地址，再配合一些算法选择其中一个服务地址，进行处理业务。
+3. 这个属于客户端侧的负载均衡，由调用方去实现负载均衡逻辑。
+```
+
+##### 网关的灰度发布
+
+![Api网关-灰度发布.png](https://s2.loli.net/2023/01/08/kqPEGNzlLIZDsAw.png)
+
+```shell
+在灰度发布开始后，先启动一个新版本应用，但是并不直接将流量切过来，而是测试人员对新版本进行线上测试，启动的这个新版本应用，就是我们的金丝雀。如果没有问题，那么可以将少量的用户流量导入到新版本上，然后再对新版本做运行状态观察，收集各种运行时数据，如果此时对新旧版本做各种数据对比，就是所谓的A/B测试。新版本没什么问题，那么逐步扩大范围、流量，把所有用户都迁移到新版本上面来。
+```
+
+##### Zuul路由配置
+
+```shell
+# pom.xml 由于只是作网关 因此不需要引入【web gav坐标】 否则提示错误
+<!--        网关Zuul-->
+<dependency>
+	<groupId>org.springframework.cloud</groupId>
+	<artifactId>spring-cloud-starter-netflix-zuul</artifactId>
+</dependency>
+<!--        网关也属于微服务 需要注册到注册中心-->
+<dependency>
+	<groupId>org.springframework.cloud</groupId>
+	<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+</dependency>
+
+# yml
+server:
+  port: 9527
+
+spring:
+  application:
+    name: cloud-zuul-gateway
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:7001/eureka
+  instance:
+    instance-id: zuul-9527.com
+    prefer-ip-address: true
+    
+# 主启动
+@SpringBootApplication
+@EnableZuulProxy
+public class ZuulGateWayMain9527 {
+    public static void main(String[] args) {
+        SpringApplication.run(ZuulGateWayMain9527.class, args);
+    }
+}
+
+# Zuul配置
+zuul:
+  routes:
+    api: # 路由节点名称 自定义 则url里面必须带api
+      path: /api/** # 以api打头的 路由转发到CLOUD-PAYMENT-SERVICE下
+      service-id: CLOUD-PAYMENT-SERVICE
+      
+# 测试
+http://localhost:8001/provider/getServerPort # 8001
+http://localhost:9527/api/provider/getServerPort # 8001
+
+# 忽略原有真实服务名
+zuul:
+	ignored-services: cloud-provider-payment
+    
+# Zuul集成了Ribbon和Hystrix，因此天生支持负载均衡和服务容错能力
+zuul:
+  routes:
+    api: # 路由节点名称 自定义 则url里面必须带api
+      path: /api/** # 以api打头的 路由转发到CLOUD-PAYMENT-SERVICE下
+      service-id: CLOUD-PAYMENT-SERVICE
+    test:
+      path：/test/**
+      service-id: CLOUD-TEST-SERVICE
+
+# 配置统一的前缀
+zuul: 
+  prefix: /gateWay
+  ignored-services: "*"
+  routes:
+  	test1:
+  		path: /api/**
+  		service-id: CLOUD-PAYMENT-SERVICE
+    test2:
+    	path: /test2/**
+    	service-id: CLOUD-TEST-SERVICE
+```
+
+##### 查看路由信息-actuator配合
+
+```shell
+# pom.xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+
+# yml
+# 开启查看路由的端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: 'routes' 
+        
+# 访问
+http://localhost:9527/actuator/routes
+```
+
+##### Zuul过滤器
+
+![Api网关-过滤器生命周期.png](https://s2.loli.net/2023/01/08/mPMrIVJzDFTWLUk.png)
+
+```shell
+# 作用
+过滤功能负责对请求过程进行额外的处理，是请求校验过滤及服务聚合的基础。
+
+# 过滤类型
+	1. pre：在请求被路由到目标服务前执行，比如权限校验、打印日志等功能；
+	2. routing：在请求被路由到目标服务时执行
+	3. post：在请求被路由到目标服务后执行，比如给目标服务的响应添加头信息，收集统计数据等功能；
+	4. error：请求在其他阶段发生错误时执行。
+	
+# 如何开启
+	# 继承ZuulFilter
+	@Component
+    @Slf4j
+    public class PreLogFilter extends ZuulFilter
+    {
+        @Override
+        public String filterType()
+        {
+            return "pre"; # 过滤器类型
+        }
+        @Override
+        public int filterOrder()
+        {
+            return 1; # 数字小的优先执行
+        }
+        @Override
+        public boolean shouldFilter()
+        {
+            return true; # 是否开启过滤
+        }
+        @Override
+        public Object run() throws ZuulException
+        {
+            # 业务逻辑
+            return null;
+        }
+    }
+    
+    # yml配置
+    zuul:
+      PreLogFilter:
+        pre:
+          disable: true
+```
+
+#### 2. GateWay
+
+##### 什么是gateway
+
+```shell
+1. Cloud全家桶中有个很重要的组件就是网关，在1.x版本中都是采用的Zuul网关；
+但在2.x版本中，zuul的升级一直跳票，SpringCloud最后自己研发了一个网关替代Zuul，gateway是原zuul1.x版的替代。
+
+2. Gateway是在Spring生态系统之上构建的API网关服务，基于Spring 5，Spring Boot 2和 Project Reactor等技术。Gateway旨在提供一种简单而有效的方式来对API进行路由，以及提供一些强大的过滤器功能， 例如：熔断、限流、重试等。为了提升网关的性能，SpringCloud Gateway是基于WebFlux框架实现的，而WebFlux框架底层则使用了高性能的Reactor模式通信框架Netty。
+```
+
+##### 能用来干嘛
+
+![Api网关-gateway.png](https://s2.loli.net/2023/01/08/AspBkRKaD9zgZYl.png)
+
+```shell
+# 场景
+1. 反向代理
+2. 鉴权
+3. 流量控制
+4. 熔断
+5. 日志监控
+等等
+
+# 特性
+1. 基于Spring Framework 5, Project Reactor 和 Spring Boot 2.0 进行构建；
+2. 动态路由：能够匹配任何请求属性；
+3. 可以对路由指定 Predicate（断言）和 Filter（过滤器）；
+4. 集成Hystrix的断路器功能；
+5. 集成 Spring Cloud 服务发现功能；
+6. 易于编写的 Predicate（断言）和 Filter（过滤器）；
+7. 请求限流功能；
+8. 支持路径重写。
+```
+
+##### Zuul与Gateway概念区别
+
+```shell
+1. Zuul 1.x，是一个基于阻塞 I/ O 的 API Gateway
+2. Zuul 1.x 基于Servlet 2. 5使用阻塞架构它不支持任何长连接(如 WebSocket) Zuul 的设计模式和Nginx较像，每次 I/ O 操作都是从工作线程中选择一个执行，请求线程被阻塞到工作线程完成，但是差别是Nginx 用C++ 实现，Zuul 用 Java 实现，而 JVM 本身会有第一次加载较慢的情况，使得Zuul 的性能相对较差。
+3. Zuul 2.x理念更先进，想基于Netty非阻塞和支持长连接，但SpringCloud目前还没有整合。 Zuul 2.x的性能较 Zuul 1.x 有较大提升。在性能方面，根据官方提供的基准测试， Spring Cloud Gateway 的 RPS（每秒请求数）是Zuul 的 1. 6 倍。
+
+1. Spring Cloud Gateway 建立 在 Spring Framework 5、 Project Reactor 和 Spring Boot 2 之上， 使用非阻塞 API。
+2. Spring Cloud Gateway 还 支持 WebSocket， 并且与Spring紧密集成拥有更好的开发体验
+```
+
+##### Zuul1.x模型和Gateway模型区别
+
+```shell
+# Zuul模型
+Springcloud中所集成的Zuul版本，采用的是Tomcat容器，使用的是传统的Servlet IO处理模型。而Servlet的生命周期：servlet由servlet container进行生命周期管理。container启动时构造servlet对象并调用servlet init()进行初始化；container运行时接受请求，并为每个请求分配一个线程（一般从线程池中获取空闲线程）然后调用service()。container关闭时调用servlet destory()销毁servlet。
+	# servlet缺点
+	servlet是一个简单的网络IO模型，当请求进入servlet container时，servlet container就会为其绑定一个线程，在并发不高的场景下这种模型是适用的。但是一旦高并发(比如用jemeter压)，线程数量就会上涨，而线程资源代价是昂贵的（上线文切换，内存消耗大）严重影响请求的处理时间。在一些简单业务场景下，不希望为每个request分配一个线程，只需要1个或几个线程就能应对极大并发的请求，这种业务场景下servlet模型没有优势。
+	
+所以Zuul 1.X是基于servlet之上的一个阻塞式处理模型，即spring实现了处理所有request请求的一个servlet（DispatcherServlet）并由该servlet阻塞式处理处理。所以Springcloud Zuul无法摆脱servlet模型的弊端
+
+# Gateway模型
+传统的Web框架，比如说：struts2，springmvc等都是基于Servlet API与Servlet容器基础之上运行的。
+但是
+在Servlet3.1之后有了异步非阻塞的支持。而WebFlux是一个典型非阻塞异步的框架，它的核心是基于Reactor的相关API实现的。相对于传统的web框架来说，它可以运行在诸如Netty，Undertow及支持Servlet3.1的容器上。非阻塞式+函数式编程（Spring5必须让你使用java8）
+Spring WebFlux 是 Spring 5.0 引入的新的响应式框架，区别于 Spring MVC，它不需要依赖Servlet API，它是完全异步非阻塞的，并且基于 Reactor 来实现响应式流规范。
+```
+
+##### Gateway三大核心
+
+![Api网关-gateway过程.png](https://s2.loli.net/2023/01/08/bmwqFPnAVd94foi.png)
+
+```shell
+# 路由 Route
+	路由是构建网关的基本模块，它由【ID】，目标【URI】，一系列的【断言】和【过滤器】组成，如果【断言为true】则【匹配该路由】。
+	
+# 断言 Predicate
+	参考的是Java8的java.util.function.Predicate，开发人员可以【匹配HTTP请求中的所有内容】(例如请求头或请求参数)，如果【请求与断言相匹配】则进行路由。
+	
+# 过滤 Filter
+	指的是Spring框架中GatewayFilter的实例，使用过滤器，可以在【请求被路由前】或者【之后】对【请求进行修改】。
+	
+# 总体流程
+	web请求，通过一些匹配条件，定位到真正的服务节点。并在这个转发过程的前后，进行一些精细化控制。
+	predicate就是我们的匹配条件；
+	而filter，就可以理解为一个无所不能的拦截器。有了这两个元素，再加上目标uri，就可以实现一个具体的路由了。
+```
+
+##### Gateway工作流程
+
+![Api网关-gateway工作过程.png](https://s2.loli.net/2023/01/08/Yu2DRXM7N9Vo3jJ.png)
+
+```shell
+1. 客户端向 Spring Cloud Gateway 【发出请求】。
+2. 然后在 Gateway Handler Mapping 中找到【与请求相匹配的路由】，将其发送到 【Gateway Web Handler】。
+3. Handler 再通过指定的【过滤器链】来将请求发送到我们【实际的服务执行业务逻辑】，然后返回。
+4. 过滤器之间用虚线分开是因为过滤器可能会在【发送代理请求之前（“pre”）】或【之后（“post”）执行业务逻辑】。
+
+# 总体来说，整个Gateway所做的事就是【对请求进行路由转发，并在这过程中执行过滤器链】
+```
+
+##### Gateway路由-yml配置方式
+
+```shell
+# pom.xml
+<!--gateway-->
+<dependency>
+	<groupId>org.springframework.cloud</groupId>
+	<artifactId>spring-cloud-starter-gateway</artifactId>
+</dependency>
+<!--eureka-client-->
+<dependency>
+	<groupId>org.springframework.cloud</groupId>
+	<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+</dependency>
+
+# 主启动
+@SpringBootApplication
+@EnableEurekaClient
+public class GatewayMain9527 {
+    public static void main(String[] args) {
+        SpringApplication.run(GatewayMain9527.class, args);
+    }
+}
+
+# yml
+server:
+  port: 9527
+spring:
+  application:
+    name: cloud-gateway-gateway
+  cloud:
+    gateway:
+      routes:
+      - id: test-route-name # 路由id 唯一 任意取 最好跟服务挂钩
+        uri: http://localhost:8001 # 映射到真实uri
+        predicates:
+        - Path=/provider/** # 断言 Path模式 匹配/provider/** 的映射到uri
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:7001/eureka
+```
+
+##### Gateway路由-基于配置类
+
+```shell
+# 配置类
+@Configuration
+public class GateWayConfig
+{
+    /**
+     * 配置了一个id为route-name的路由规则，
+     * 当访问地址 http://localhost:9527/guonei时会自动转发到地址：http://news.baidu.com/guonei
+     * @param builder
+     * @return
+     */
+    @Bean
+    public RouteLocator customRouteLocator(RouteLocatorBuilder builder)
+    {
+        RouteLocatorBuilder.Builder routes = builder.routes();
+        routes.route("path_route_atguigu", r -> r.path("/guonei").uri("http://news.baidu.com/guonei")).build();
+        return routes.build();
+
+    }
+}
+```
+
+##### Gateway路由-动态路由（通过微服务名）
+
+```shell
+# 上面的uri缺点
+在上面的例子中，在yml的uri配置项上，我们直接使用http://localhost:8001这样的死路径
+
+# 动态路由
+默认情况下Gateway会根据注册中心注册的服务列表，以注册中心上微服务名为路径，创建动态路由进行转发，从而实现动态路由的功能。
+
+# yml
+server:
+  port: 9527
+spring:
+  application:
+    name: cloud-gateway-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true # 开启从注册中心动态创建路由的功能，利用微服务名进行路由
+      routes:
+      - id: test-route-name
+        # uri: http://localhost:8001
+        uri: lb://CLOUD-PAYMENT-SERVICE # 匹配后提供服务的路由地址,就是注册中心中的服务名称
+        predicates:
+        - Path=/provider/**
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:7001/eureka
+      
+需要注意的是uri的协议为lb，表示启用Gateway的负载均衡功能。lb://serviceName是spring cloud gateway在微服务中自动为我们创建的负载均衡uri。
+```
+
+##### Gateway断言-具体可看官网配置
+
+```shell
+# Route Predicate Factories
+1. Spring Cloud Gateway将路由匹配作为Spring WebFlux HandlerMapping基础架构的一部分。
+2. Spring Cloud Gateway包括许多内置的Route Predicate工厂。所有这些Predicate都与HTTP请求的不同属性匹配。多个Route Predicate工厂可以进行组合
+3. Spring Cloud Gateway 创建 Route 对象时， 使用 RoutePredicateFactory 创建 Predicate 对象，Predicate 对象可以赋值给 Route。 Spring Cloud Gateway 包含许多内置的Route Predicate Factories。
+4. 所有这些谓词都匹配HTTP请求的不同属性。多种谓词工厂可以组合，并通过逻辑and。
+
+# 分类
+1. After
+2. Before
+3. Between
+4. Cookie
+5. Header
+6. Host
+7. Method
+8. Path
+9. Query
+```
+
+##### Gateway过滤器-具体可看官网配置
+
+```shell
+# 何为Gateway过滤器
+路由过滤器可用于修改进入的HTTP请求和返回的HTTP响应，路由过滤器只能指定路由进行使用。Spring Cloud Gateway 内置了多种路由过滤器，他们都由GatewayFilter的工厂类来产生。
+
+# 过滤器生命周期
+1. pre
+2. post
+
+# 过滤器种类
+1. GatewayFilter
+2. GlobalFilter
+
+# 比如AddRequestParameter 过滤器
+spring:
+  application:
+    name: cloud-gateway-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true # 开启从注册中心动态创建路由的功能，利用微服务名进行路由
+      routes:
+      - id: test-route-name
+        # uri: http://localhost:8001
+        uri: lb://CLOUD-PAYMENT-SERVICE # 匹配后提供服务的路由地址,就是注册中心中的服务名称
+        predicates:
+        - Path=/provider/**
+        filters:
+          - AddRequestParameter=X-Request-Id,1024 # 过滤器工厂会在匹配的请求头加上一对请求头，名称为X-Request-Id值为1024
+          
+# 自定义过滤器- 主要实现GlobalFilter和Ordered接口
+# 通常可以用来全局日志记录，统一网关鉴权等等 场景
+@Component
+public class MyLogGateWayFilter implements GlobalFilter,Ordered
+{
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain)
+    {
+    	# 填充自定义业务逻辑
+        System.out.println("time:"+new Date()+"\t 执行了自定义的全局过滤器: "+"MyLogGateWayFilter"+"hello");
+	    # 通过exchange取请求相关	
+        String uname = exchange.getRequest().getQueryParams().getFirst("uname");
+        if (uname == null) {
+            System.out.println("****用户名为null，无法登录");
+            # 同样通过exchange设置响应相关
+            exchange.getResponse().setStatusCode(HttpStatus.NOT_ACCEPTABLE);
+            return exchange.getResponse().setComplete();
+        }
+        # 过滤链执行
+        return chain.filter(exchange);
+    }
+
+    @Override
+    public int getOrder()
+    {
+        return 0; # 执行顺序 越小越先执行
+    }
+}
+```
+
