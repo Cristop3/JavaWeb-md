@@ -1793,3 +1793,397 @@ public class MyLogGateWayFilter implements GlobalFilter,Ordered
 }
 ```
 
+## 202301112
+
+### 配置中心
+
+#### 1. Config
+
+##### 分布式系统下的配置问题
+
+```shell
+微服务意味着要将单体应用中的业务拆分成一个个子服务，每个服务的粒度相对较小，因此系统中会出现大量的服务。由于每个服务都需要必要的配置信息才能运行，所以一套集中式的、动态的配置管理设施是必不可少的。SpringCloud提供了ConfigServer来解决这个问题
+```
+
+##### 什么是SpringCloud Config配置
+
+```shell
+# 基本概念
+1. SpringCloud Config为微服务架构中的微服务提供【集中化】的【外部配置】支持，配置服务器为【各个不同微服务应用】的【所有环境】提供了一个【中心化的外部配置】
+
+2. SpringCloud Config分为【服务端】和【客户端】两部分。
+	2.1 Server端（服务端）
+		服务端也称为分布式配置中心，它是一个独立的微服务应用，用来连接配置服务器并为客户端提供获取配置信息，加密/解密信息等访问接口
+	2.2 Client端（客户端）
+		客户端则是通过指定的配置中心来管理应用资源，以及与业务相关的配置内容，并在启动的时候从配置中心获取和加载配置信息配置服务器默认采用git来存储配置信息，这样就有助于对环境配置进行版本管理，并且可以通过git客户端工具来方便的管理和访问配置内容。
+		
+3. 由于SpringCloud Config默认使用Git来存储配置文件(也有其它方式,比如支持SVN和本地文件)		
+```
+
+##### Spring Cloud Config运用场景
+
+```shell
+1. 集中管理配置文件
+2. 不同环境不同配置，动态化的配置更新，分环境部署比如dev/test/prod/beta/release
+3. 运行期间动态调整配置，不再需要在每个服务部署的机器上编写配置文件，服务会向配置中心统一拉取配置自己的信息
+4. 当配置发生变动时，服务不需要重启即可感知到配置的变化并应用新的配置
+5. 将配置信息以REST接口的形式暴露（POST方式 curl命令访问后刷新即可）
+```
+
+##### 如何配置
+
+```shell
+# 配置Git仓库
+首先需要准备一个专门放中心化外部配置的Git仓库 名字随意如springcloud-config
+	config-dev.yml
+	config-prod.yml
+	config-test.yml
+
+# 配置Server端
+	# pom.xml
+	<dependency>
+    	<groupId>org.springframework.cloud</groupId>
+    	<artifactId>spring-cloud-config-server</artifactId> # Config服务端
+    </dependency>
+    <dependency>
+    	<groupId>org.springframework.cloud</groupId>
+    	<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+    </dependency>
+    
+    # yml
+    server:
+  	  port: 3344
+
+    spring:
+      application:
+        name:  cloud-config-server # 注册进Eureka服务器的微服务名
+      cloud:
+        config:
+          server:
+            git:
+              # GitHub上面的git仓库名字	
+              uri: git@github.com:xxxx/springcloud-config.git 
+              # 搜索目录
+              search-paths:
+                # 仓库名称
+              - springcloud-config
+                # 读取分支 master主分支
+                label: master
+
+     # 服务注册到eureka地址
+     eureka:
+       client:
+         service-url:
+           defaultZone: http://localhost:7001/eureka
+           
+     # 主启动类
+     @SpringBootApplication
+     @EnableConfigServer # 启用config配置中心服务端
+     public class ConfigCenterMain3344
+     {
+     	public static void main(String[] args) {
+     		SpringApplication.run(ConfigCenterMain3344.class, args);
+     	}
+     }
+     
+     # 基于Config服务端 访问git下的文件
+     	label: 分支（branch）
+     	name: 服务名
+     	profiles: 环境（dev/test/prod）
+     	
+     	1. /{label}/{application}-{profile}.yml
+     		# 获取master分支下的dev配置文件
+     		http://config-3344.com:3344/master/config-dev.yml 
+     		# 获取dev分支下的dev配置文件
+     		http://config-3344.com:3344/dev/config-dev.yml
+     		
+     	2. /{application}-{profile}.yml
+     		# 默认访问主分支下的dev配置文件
+     		http://config-3344.com:3344/config-dev.yml
+     		http://config-3344.com:3344/config-xxxx.yml (不存在的配置)
+     		
+     	3. /{application}/{profile}[/{label}]
+     		# 获取master分支下的dev配置文件
+     		http://config-3344.com:3344/config/dev/master
+     		# 获取dev分支下的test配置文件
+     		http://config-3344.com:3344/config/test/dev
+     		
+# 配置Client端
+	# pom.xml
+    <dependency>
+    	<groupId>org.springframework.cloud</groupId>
+    	<artifactId>spring-cloud-starter-config</artifactId>
+    </dependency>
+    <dependency>
+    	<groupId>org.springframework.cloud</groupId>
+    	<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+    </dependency>
+    
+    # bootstrap.yml与application.yml
+    	1. application.yml是用户级的资源配置项
+    	2. bootstrap.yml是系统级的，【优先级更加高】
+    		Spring Cloud会创建一个“Bootstrap Context”，作为Spring应用的`Application Context`的父上下文。初始化的时候，`Bootstrap Context`负责从外部源加载配置属性并解析配置。这两个上下文共享一个从外部获取的`Environment`。
+    		`Bootstrap`属性有高优先级，默认情况下，它们不会被本地配置覆盖。 `Bootstrap context`和`Application Context`有着不同的约定，所以新增了一个`bootstrap.yml`文件，保证`Bootstrap Context`和`Application Context`配置的分离。
+    		
+    # 在客户端下面创建bootstrap.yml
+    server:
+  	  port: 3344
+
+    spring:
+      application:
+        name:  cloud-config-client # 注册进Eureka服务器的微服务名
+      cloud:
+        config:
+          uri: http://localhost:3344 # config-server 配置中心服务端地址
+          label: master # 分支
+          name: config # 文件名称
+          profile: dev # 文件名后缀
+          # 上述3个综合：master分支上config-dev.yml的配置文件被读取http://config-3344.com:3344/master/config-dev.yml
+          
+     # 服务注册到eureka地址
+     eureka:
+       client:
+         service-url:
+           defaultZone: http://localhost:7001/eureka
+           
+   # 主启动
+    @EnableEurekaClient
+    @SpringBootApplication
+    public class ConfigClientMain3355
+    {
+        public static void main(String[] args)
+        {
+            SpringApplication.run(ConfigClientMain3355.class,args);
+        }
+    }
+    
+   # 测试类
+    @RestController
+    public class ConfigClientController
+    {
+        @Value("${config.info}")
+        private String configInfo;
+
+        @GetMapping("/configInfo")
+        public String getConfigInfo() 
+
+        {
+            return configInfo;
+        }
+    }
+    访问 http://localhost:3355/configInfo 客户端可获取配置中心的配置信息，即证明客户端3355通过配置中心3344访问了git上的外部配置文件信息
+    
+   # 存在的问题
+   当修改远程git上的文件时，刷新配置中心3344，结果是刷新后的配置文件信息，但刷新3355（上述链接），发现配置并未更新，若重启3355客户端，可以获取到最新配置文件。
+   
+   # 如何解决（方案1）引入actuator监控模块
+   	# pom.xml
+   	<dependency>
+    	<groupId>org.springframework.boot</groupId>
+    	<artifactId>spring-boot-starter-actuator</artifactId>
+	</dependency>
+	
+	# yml
+	# 暴露监控端点
+    management:
+      endpoints:
+        web:
+          exposure:
+            include: "*"
+            
+    # 修改测试类 增加@RefreshScope注解
+    @RestController
+    @RefreshScope
+    public class ConfigClientController
+    {
+        @Value("${config.info}")
+        private String configInfo;
+
+        @GetMapping("/configInfo")
+        public String getConfigInfo() {
+            return configInfo;
+        }
+    }
+	
+    # 实际按之前操作
+    修改远程git文件 -> 刷新配置中心3344（更新）-> 访问3355拿配置（未更新）
+    
+    # 需要再通知actuator告诉监控组件远程文件已更新
+    	1. 必须是POST请求
+    	2. 为了方便使用curl命令 curl -X POST "http://localhost:3355/actuator/refresh"
+    	
+    # 以上方案1中虽然解决了不需要重启客户端来让配置文件更新，但是同时存在，若存在多个客户端，岂不是每个都需要手动的去发起POST请求 通知监控组件该更新？
+```
+
+#### 2. Bus
+
+##### 是什么
+
+```shell
+Spring Cloud Bus 配合 Spring Cloud Config 使用可以实现配置的动态刷新。
+Spring Cloud Bus是用来将分布式系统的节点与轻量级消息系统链接起来的框架，
+它整合了Java的事件处理机制和消息中间件的功能。
+Spring Clud Bus目前支持RabbitMQ和Kafka。
+```
+
+##### 能干嘛
+
+```shell
+Spring Cloud Bus能管理和传播分布式系统间的消息，就像一个分布式执行器，可用于广播状态更改、事件推送等，也可以当作微服务间的通信通道。
+```
+
+##### 为什么叫总线
+
+```shell
+# 概念
+在微服务架构的系统中，通常会使用轻量级的消息代理来构建一个共用的消息主题，并让系统中所有微服务实例都连接上来。由于该主题中产生的消息会被所有实例监听和消费，所以称它为消息总线。在总线上的各个实例，都可以方便地广播一些需要让其他连接在该主题上的实例都知道的消息。
+
+# 原理
+ConfigClient实例都监听MQ中同一个topic(默认是springCloudBus)。当一个服务刷新数据的时候，它会把这个信息放入到Topic中，这样其它监听同一Topic的服务就能得到通知，然后去更新自身的配置。
+```
+
+##### windows下安装RabbitMQ
+
+```shell
+# 下载Erlang并安装
+http://erlang.org/download/otp_win64_21.3.exe
+
+# 下载RabbitMQ并安装
+https://dl.bintray.com/rabbitmq/all/rabbitmq-server/3.7.14/rabbitmq-server-3.7.14.exe
+
+# 进入RabbitMQ【sbin】目录下 开启插件管理
+rabbitmq-plugins enable rabbitmq_management
+
+# 通过可视化插件启动MQ 默认15672端口 初始账户密码 guest guest
+http://localhost:15672/
+
+```
+
+##### 触发模式
+
+```shell
+# 模式1 通知任意一个客户端
+/bus/refresh -> 客户端1 -> Bus总线 -> 其余客户端
+
+# 模式2 通知配置中心服务端
+/bus/refresh -> Config Server -> Bus总线 -> 所有客户端
+
+优先选择模式2，模式1存在以下不足：
+	1. 打破了微服务的职责单一性，因为微服务本身是业务模块，它本不应该承担配置刷新的职责。
+	2. 破坏了微服务各节点的对等性。
+	3. 有一定的局限性。例如，微服务在迁移时，它的网络地址常常会发生变化，此时如果想要做到自动刷新，那就会增加更多的修改
+```
+
+##### 如何配置 - Config Server 设置Bus
+
+```shell
+# pom.xml
+<!--添加消息总线RabbitMQ支持-->
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-bus-amqp</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+
+# yml
+server:
+  port: 3344
+
+spring:
+  application:
+    name:  cloud-config-server # 注册进Eureka服务器的微服务名
+  cloud:
+    config:
+      server:
+        git:
+            # GitHub上面的git仓库名字	
+            uri: git@github.com:xxxx/springcloud-config.git 
+            # 搜索目录
+            search-paths:
+            # 仓库名称
+            - springcloud-config
+            # 读取分支 master主分支
+            label: master
+
+# 服务注册到eureka地址
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:7001/eureka
+      
+# 新增MQ配置
+# rabbitmq相关配置
+rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    
+# rabbitmq相关配置,暴露bus刷新配置的端点
+management:
+  endpoints: #暴露bus刷新配置的端点
+    web:
+      exposure:
+        include: 'bus-refresh' # 对应上面 /bus/refresh   
+```
+
+##### 如何配置 - Config Client 设置Bus
+
+```shell
+# pom.xml
+<!--添加消息总线RabbitMQ支持-->
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-bus-amqp</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+
+# yml
+server:
+  port: 3344
+
+spring:
+  application:
+    name:  cloud-config-client # 注册进Eureka服务器的微服务名
+  cloud:
+    config:
+      uri: http://localhost:3344 # config-server 配置中心服务端地址
+      label: master # 分支
+      name: config # 文件名称
+      profile: dev # 文件名后缀
+      # 上述3个综合：master分支上config-dev.yml的配置文件被读取http://config-3344.com:3344/master/config-dev.yml
+          
+# 服务注册到eureka地址
+eureka:
+  client:
+  service-url:
+  defaultZone: http://localhost:7001/eureka
+  
+#rabbitmq相关配置 15672是Web管理界面的端口；5672是MQ访问的端口
+rabbitmq:
+  host: localhost
+  port: 5672
+  username: guest
+  password: guest
+  
+# 暴露监控端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"   # 'refresh'
+        
+# 测试给配置中心Server端 发送POST 默认所有客户端会更新配置
+curl -X POST "http://localhost:3344/actuator/bus-refresh"
+
+# 如何做定点通知客户端
+公式：http://localhost:配置中心的端口号/actuator/bus-refresh/{destination}
+其中这个destination 是由【客户端spring.application.name】: 【端口号】组成，比如3355客户端就是
+curl -X POST http://localhost:配置中心的端口号/actuator/bus-refresh/cloud-config-client:3355
+```

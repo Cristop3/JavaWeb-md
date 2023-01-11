@@ -490,3 +490,102 @@ EXPOSE 8080 # 设置暴露的端口
 CMD /usr/local/apache-tomcat-9.0.35/bin/startup.sh && tail -F /usr/local/apache-tomcat-9.0.35/logs/catalina.out # 设置默认命令
 ```
 
+#### docker网络
+
+```shell
+1. 查看当前网络
+	ip addr
+	# 一般情况下会出现3个网卡
+	1: lo # 本地回环地址
+	2: ens33 # 虚拟机网卡 因人而异
+	3: docker0 ip(172.17.0.1) # docker创建的网卡
+	
+2. 启动任意一个镜像 再查看网络
+	docker run -d --name "tomcat1" -P tomcat
+	ip addr
+	# 会发现多了一组网络
+	5: vethe9c1e0a@if4
+	# 再启动一个镜像
+	docker run -d --name "tomcat2" -P tomcat
+	# 会发现又多了一组网络
+	7: veth05e2ecd@if6
+	# 分别inspect两个容器 查看对应的ip
+	tomcat1 : ip(172.17.0.3) getway(172.17.0.1) # 均使用docker0作为网关
+	tomcat2 : ip(172.17.0.2) getway(172.17.0.1) # 均使用docker0作为网关
+	
+	# 从主机ping容器内ip 均能ping通
+	ping 172.17.0.3
+	ping 172.17.0.2
+	# 分别从容器内ping主机 均能ping通
+	
+	# 从容器1ping容器2 或者 容器2ping容器1 均能ping通
+	
+	docker会将docker0作为路由器，所有的容器不指定网络的情况下，都是docker0路由的，docker会给我们的容器分配一个默认的可用ip。且不论怎么ping指定ip（主机到容器&容器到主机&容器到容器）均可通	
+	
+3. 原理
+	我们每启动一个docker容器，docker就会给docker容器分配一个ip，我们只要按照了docker，
+就会有一个docker0桥接模式，使用的技术是veth-pair技术！veth-pair 就是一对的虚拟设备接口，他们都是成对出现的，一端连着协议，一端彼此相连正因为有这个特性 veth-pair 充当一个桥梁，连接各种虚拟网络设备的
+OpenStac,Docker容器之间的连接，OVS的连接，都是使用evth-pair技术。见下图：
+```
+
+![docker-network.png](https://s2.loli.net/2022/11/23/afixnyE5ZL1eOwh.png)
+
+```shell
+4. 如何使用容器名称来代替ip
+	在上面的容器ping容器中我们一直使用的是固定ip，在集群环境中，显然不可靠。
+	4.1 --link命令
+		docker run -d -P --name "tomcat1" tomcat
+		docker run -d -P --name "tomcat2" --link tomcat1 tomcat
+		# 将tomcat2连接到tomcat1下 实际就是在tomcat2中的host中添加了tomcat1地址作映射
+		root@9e5f110a2560:/usr/local/tomcat# cat /etc/hosts
+        127.0.0.1       localhost
+        172.17.0.2      tomcat1 f0c01ba73742 # 此处
+        172.17.0.3      9e5f110a2560
+        # 但是在tomcat1下的hosts中没有tomcat2ip
+        因此，现在从tomcat2 ping tomcat1能通，反过来tomcat1 ping tomcat2不通
+        
+        # 同时我们用docker inspect tomcat2容器id
+        "Links": [
+                "/tomcat1:/tomcat2/tomcat1"
+         ]
+    # 默认使用docker0 作桥接模式的缺陷就是无法天然支持通过容器名连接访问（备选使用--link太麻烦）
+    
+    4.2 自定义网络
+    	# docker network命令
+    	[root@localhost ~]# docker network ls
+        NETWORK ID     NAME      DRIVER    SCOPE
+        dab60d638ac5   bridge    bridge    local
+        da05f4096574   host      host      local
+        abf93f58cc98   none      null      local
+        
+    	bridge ：桥接 docker（默认，自己创建也是用bridge模式）
+        none ：不配置网络，一般不用
+        host ：和所主机共享网络
+        container ：容器网络连通（用得少！局限很大）
+        
+        # 平时我们run一个镜像跑起来的容器，默认就是使用bridge模式 --net [模式]
+        docker run -d -P --name tomcat1 tomcat
+        docker run -d -P --name tomcat1 --net bridge tomcat
+        
+        # 自定义
+        [root@localhost ~]# docker network create --driver bridge --subnet 192.168.0.0/16 --gateway 192.168.0.1 diynet
+        873e415298a3316348276d2264ad3d2fc2900ddeaa1802e98d8e05022917d037
+        [root@localhost ~]# docker network ls
+        NETWORK ID     NAME      DRIVER    SCOPE
+        dab60d638ac5   bridge    bridge    local
+        873e415298a3   diynet    bridge    local
+        da05f4096574   host      host      local
+        abf93f58cc98   none      null      local
+        
+        # 以自定义网络启动容器
+        docker run -d -P --name tomcat1 --net diynet tomcat
+        docker run -d -P --name tomcat2 --net diynet tomcat
+        # 这样不论在容器1连接容器2，还是反过来，均能连接。因为我们自定义的网络docker当我们维护好了对应的关系
+        
+   4.3 不同网段的容器之间连接
+   		# 在上面中，我们启动的两个容器均是在同一网段192.168因此直接使用自定义网络均能打通
+   		若在不同网段的容器之间连接，则我们要使用docker network connect 命令
+   		docker network connect [OPTIONS] [自定义网络名称] [需要连接的容器名称]
+   		docker network connect diynet tomcat2
+```
+
